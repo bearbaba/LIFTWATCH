@@ -4,7 +4,7 @@
 
 **LIFTWATCH** is a GenLayer Intelligent Contract + analyst dashboard for A/B experiments that makes "we saw an uplift" insufficient to authorize a release. A product owner *preregisters* the hypothesis, primary metric, population, assignment plan and quantitative release thresholds. A separate analyst signs a single immutable report. Deterministic onchain math blocks unsupported claims; independent GenLayer AI validators evaluate the experimental method against the frozen plan. Only after both gates pass may the owner sign an **authorization record**.
 
-> **Build status — 16 Nov 2026:** runnable source and responsive UI are prepared with security tests and CI configuration. **Not yet deployed to Studionet. No accepted onchain PASS or AUTHORIZED claim is made.** Preloaded conversion metrics are fictional and explicitly labeled as illustrative local data. The internal 9.5/10 target requires verified signed execution on a fresh deployed contract.
+> **Build status — 16 Nov 2026:** Source published and GitHub Actions CI passing: Python unit tests, JavaScript authorization tests, production frontend build and unsigned GenLayer schema/ABI checks. **Not yet deployed to Studionet; no accepted on-chain ELIGIBLE or AUTHORIZED verdict is claimed.** Preloaded conversion metrics are fictional and labeled as illustrative local data.
 
 ## Product thesis
 
@@ -88,6 +88,6 @@ The preregistered trial uses a persistent randomization plan, 2,500 users in eac
 
 This is an **authorization ledger**, not an actual feature deployment service, statistical consulting certification, A/B testing analytics provider, investment/trading tool, and not a live production traffic switch. Missing allocation logs, cohort timestamps, sample ratio diagnostics or multiple-testing corrections can invalidate causal interpretation despite arithmetic success. Use independent signed/provider-backed evidence in a production integration.
 
-The current local test suite covers sample thresholds, z² arithmetic, guardrails, wallet roles, consent to release, false evidence IDs, hash mismatch, snapshot tampering and fail-closed outcomes. **Accepted multi-validator GenLayer judgments have not yet been provided.**
+The [GitHub Actions checks](https://github.com/bearbaba/LIFTWATCH/actions) run 23 Python tests and 11 JavaScript tests, frontend production build, contract syntax and unsigned GenLayer ABI/schema validation. The current test suite covers sample thresholds, z² arithmetic, guardrails, wallet roles, consent to release, false evidence IDs, hash mismatch, snapshot tampering and fail-closed outcomes. **Accepted multi-validator GenLayer judgments have not yet been provided.**
 
 **License:** MIT, see [LICENSE](LICENSE).
