@@ -49,7 +49,29 @@ if(stats.trials>0){
   status_is_valid:['REGISTERED','EVIDENCE_LOCKED','ELIGIBLE','REVIEW','HOLD','AUTHORIZED','CLOSED'].includes(t.status)
  };
  if(Object.values(checks).some(v=>v!==true))throw Error('Unexpected LATEST_FINAL trial data '+JSON.stringify({checks,status:t.status}));
- trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,checks};
+ const r=t.report||{},m=t.metrics||{};
+ let reportVerification=null;
+ if(t.status!=='REGISTERED'){
+  const expected={control_users:2500,control_success:300,treatment_users:2500,treatment_success:400,control_errors:22,treatment_errors:24};
+  const expectedNote='Experiment assignment used a persistent user-ID hash with a frozen 50/50 split. All eligible visitors were counted once during the same two-week window; the primary event was completed checkout. Errors were tracked consistently in both arms and no eligibility rule was changed after preregistration.';
+  const reportChecks={
+   exact_counts:Object.entries(expected).every(([k,v])=>r[k]===v),
+   exact_note:r.methods_note===expectedNote,
+   method_sha:r.methods_sha256===sha(r.methods_note),
+   report_sha:t.report_sha256===sha(JSON.stringify(stable(r))),
+   normal_approx_valid:m.normal_approx_valid===true,
+   sample_floor_pass:m.sample_floor_pass===true,
+   uplift_floor_pass:m.uplift_floor_pass===true,
+   significance_95:m.approx_95pct_z_test_pass===true,
+   error_guardrail:m.error_guardrail_pass===true,
+   deterministic_gate:m.deterministic_gate===true,
+   exact_rates:m.control_bps===1200&&m.treatment_bps===1600&&m.absolute_lift_bps===400&&
+      m.control_errors_bps===88&&m.treatment_errors_bps===96
+  };
+  if(Object.values(reportChecks).some(v=>v!==true))throw Error('Committed LIFTWATCH report mismatch '+JSON.stringify({reportChecks,report:r,metrics:m}));
+  reportVerification={report_sha256:t.report_sha256,methods_sha256:r.methods_sha256,metrics:m,checks:reportChecks};
+ }
+ trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,checks,reportVerification};
 }
 
 console.log(JSON.stringify({
