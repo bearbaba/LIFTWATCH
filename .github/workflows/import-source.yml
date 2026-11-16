@@ -1,0 +1,28 @@
+name: One-time source import
+on:
+  push:
+    paths:
+      - '.project-import.txt'
+permissions:
+  contents: write
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Expand verified project sources
+        run: |
+          set -euo pipefail
+          test -f .project-import.txt
+          base64 -d .project-import.txt | tar -xzvf -
+          test -f README.md
+          test -d contracts
+          test -d tests
+          test -d web
+          rm .project-import.txt
+          git add -A
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: import complete GenLayer project source'
+          git push origin HEAD:main
