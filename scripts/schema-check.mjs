@@ -10,3 +10,14 @@ if(!source.startsWith('# { "Depends": "py-genlayer:'))throw Error('Missing pinne
 const schema=await createClient({chain:studionet}).getContractSchemaForCode(source);
 for(const method of expected)if(!Object.hasOwn(schema.methods||{},method))throw Error('ABI missing '+method);
 console.log(JSON.stringify({ok:true,path,methods:expected,constructor:schema.ctor},null,2));
+
+// V1.1 candidate is separate and has a deliberately explicit format-only retry.
+const candidate='contracts/liftwatch_v11.py';
+const v11=readFileSync(candidate,'utf8');
+const schemaV11=await createClient({chain:studionet}).getContractSchemaForCode(v11);
+for(const name of ['preregister','submit_results','assess_trial','retry_format_review',
+                   'authorize_rollout','close_trial','get_trial','get_reference_bank','stats']){
+  if(!Object.hasOwn(schemaV11.methods||{},name))throw Error('V1.1 ABI missing '+name);
+}
+console.log(JSON.stringify({ok:true,path:candidate,version:'1.1.0',
+  methods:Object.keys(schemaV11.methods||{}),constructor:schemaV11.ctor},null,2));

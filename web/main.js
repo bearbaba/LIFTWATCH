@@ -2,7 +2,7 @@ import {connectWallet,read,write,explorer} from './chain.js';
 import {addressValid,actionGates,metrics} from './safety.js';
 const $=id=>document.getElementById(id);
 const previewPlan={min_arm:500,min_lift_bps:150,max_error_increase_bps:100};
-let actor='',address=localStorage.getItem('liftwatch_contract')||'',trial=null,busy=false;
+let actor='',address=localStorage.getItem('liftwatch_contract')||'0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106',trial=null,policy=null,busy=false;
 $('contract').value=address;
 const short=v=>v?v.slice(0,7)+'…'+v.slice(-5):'—';
 const number=id=>Number($(id).value);
@@ -43,11 +43,13 @@ function render(){const live=!!trial;
  $('aiDecision').textContent=live?trial.status:'NOT ASSESSED';
  $('aiExplanation').textContent=live&&trial.assessment?.checks?.length?
   trial.assessment.checks.map(c=>c.criterion+':'+c.result).join(' | '):
-  'Illustrative metric math is not GenLayer validator consensus; an accepted live trial must be read back at LATEST_FINAL.';
+  (live&&trial.assessment?.format_fallback===true?
+    'Technical schema REVIEW. Only the original analyst may retry on V1.1, within the bounded limit.':
+    'Illustrative metric math is not GenLayer validator consensus; an accepted live trial must be read back at LATEST_FINAL.');
  $('connect').textContent=actor?short(actor)+' ✓':'Connect wallet ↗';
- const gates=actionGates(trial,actor);
- for(const key of ['preregister','report','assess','authorize','close']){
-  const lookup={preregister:'register',report:'report',assess:'assess',authorize:'authorize',close:'close'}[key];
+ const gates=actionGates(trial,actor,policy);
+ for(const key of ['preregister','report','assess','retry','authorize','close']){
+  const lookup={preregister:'register',report:'report',assess:'assess',retry:'retry',authorize:'authorize',close:'close'}[key];
   $(key).disabled=busy||!address||!actor||!gates[lookup];
  }
  $('load').disabled=busy||!address;
@@ -55,8 +57,13 @@ function render(){const live=!!trial;
 }
 async function latest(){address=$('contract').value.trim();if(!addressValid(address))throw Error('Provide your deployed LIFTWATCH contract address.');
  const st=await read(address,'stats');
- if(st.name!=='LIFTWATCH'||st.version!=='1.0.0'||st.citation_mode!=='DETERMINISTIC_REFERENCE_IDS'||st.rollout!=='NON_EXECUTING_AUTHORIZATION')
+ if(st.name!=='LIFTWATCH'||!['1.0.0','1.1.0'].includes(st.version)||
+    st.rollout!=='NON_EXECUTING_AUTHORIZATION'||
+    (st.version==='1.0.0'&&st.citation_mode!=='DETERMINISTIC_REFERENCE_IDS')||
+    (st.version==='1.1.0'&&(st.citation_mode!=='CONTRACT_ASSIGNED_LITERAL_REFERENCES'||
+      st.retry_policy!=='FORMAT_REVIEW_ONLY'||st.max_assessment_runs!==3)))
   throw Error('Unexpected deployed contract name, version, or policy. Signing is disabled.');
+ policy=st;
  const id=number('trialId');
  if(!Number.isSafeInteger(id)||id<=0)throw Error('Use a positive trial ID.');
  if(id>st.trials){trial=null;setMsg('Verified LIFTWATCH contract. Trial #'+id+' not yet created; connect the owner wallet and preregister.');return}
@@ -67,7 +74,7 @@ async function latest(){address=$('contract').value.trim();if(!addressValid(addr
 }
 async function guard(fn){if(busy)return;busy=true;render();try{await fn()}catch(e){setMsg('ACTION BLOCKED / '+String(e.message||e))}finally{busy=false;render()}}
 async function sign(method,args){if(!addressValid(address)||!actor)throw Error('Connect wallet and verified contract first.');
- const gates=actionGates(trial,actor),key={preregister:'register',submit_results:'report',assess_trial:'assess',authorize_rollout:'authorize',close_trial:'close'}[method];
+ const gates=actionGates(trial,actor),key={preregister:'register',submit_results:'report',assess_trial:'assess',retry_format_review:'retry',authorize_rollout:'authorize',close_trial:'close'}[method];
  if(method!=='preregister'&&!gates[key])throw Error('Your wallet or current finalized state does not authorize '+method);
  setMsg('Confirm '+method+' in your wallet. A successful GenVM leader return is not proof of validator acceptance.');
  const hash=await write(address,actor,method,args);
@@ -75,7 +82,7 @@ async function sign(method,args){if(!addressValid(address)||!actor)throw Error('
  setMsg('TX SUBMITTED · NOT YET FINALIZED\n'+hash+'\nCheck validator consensus on Explorer, then select Read LATEST_FINAL. Do not claim ELIGIBLE/AUTHORIZED until committed.');
 }
 $('connect').addEventListener('click',()=>guard(async()=>{actor=await connectWallet();setMsg('Wallet '+actor+' on Studionet. Verify deployed contract before writing.');}));
-$('contract').addEventListener('change',()=>{address=$('contract').value.trim();if(addressValid(address))localStorage.setItem('liftwatch_contract',address);trial=null;render()});
+$('contract').addEventListener('change',()=>{address=$('contract').value.trim();if(addressValid(address))localStorage.setItem('liftwatch_contract',address);trial=null;policy=null;render()});
 $('load').addEventListener('click',()=>guard(latest));
 $('preregister').addEventListener('click',()=>guard(async()=>{if(!addressValid(address))throw Error('Deploy the contract in Studio first');
  const p=planInputs();if(!addressValid(p.analyst)||p.analyst.toLowerCase()===actor.toLowerCase())throw Error('Assign a different authorized analyst wallet.');
@@ -88,6 +95,7 @@ $('report').addEventListener('click',()=>guard(async()=>{if(!trial)throw Error('
  await sign('submit_results',[trial.id,r.control_users,r.control_success,r.treatment_users,r.treatment_success,r.control_errors,r.treatment_errors,note,digest]);
 }));
 $('assess').addEventListener('click',()=>guard(()=>sign('assess_trial',[trial.id])));
+$('retry').addEventListener('click',()=>guard(()=>sign('retry_format_review',[trial.id])));
 $('authorize').addEventListener('click',()=>guard(()=>sign('authorize_rollout',[trial.id])));
 $('close').addEventListener('click',()=>guard(async()=>{const reason=window.prompt('Explain why this trial should close (12–300 characters):');
  if(reason===null)return;if(reason.length<12||reason.length>300)throw Error('Explanation must be 12–300 characters');
@@ -98,3 +106,5 @@ for(const id of ['cUsers','cWins','tUsers','tWins','cErrors','tErrors','minArm',
  $(id).addEventListener('input',()=>preview());
 $('note').addEventListener('input',()=>updateNoteHash().catch(e=>setMsg(e.message)));
 render();updateNoteHash().catch(e=>setMsg(e.message));
+// Read actual persisted on-chain state on initial load. Never show demo numbers as a live result until verified.
+guard(latest);

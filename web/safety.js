@@ -24,12 +24,16 @@ export function metrics(plan,report){
     normal_approx_valid:normalValid,approx_95pct_z_test_pass:zPass,error_guardrail_pass:guardPass,
     deterministic_gate:samplePass&&liftPass&&zPass&&guardPass};
 }
-export function actionGates(trial,actor){
+export function actionGates(trial,actor,policy=null){
   const s=actor?.toLowerCase(),p=trial?.plan||{};
   return {
     register:addressValid(actor),
     report:trial?.status==='REGISTERED'&&s===p.analyst?.toLowerCase(),
     assess:trial?.status==='EVIDENCE_LOCKED'&&s===p.analyst?.toLowerCase(),
+    retry:policy?.version==='1.1.0'&&trial?.status==='REVIEW'&&
+      trial?.assessment?.format_fallback===true&&trial?.metrics?.deterministic_gate===true&&
+      Number.isInteger(trial?.assessment_runs)&&trial.assessment_runs>0&&
+      trial.assessment_runs<policy.max_assessment_runs&&s===p.analyst?.toLowerCase(),
     authorize:trial?.status==='ELIGIBLE'&&trial?.assessment?.verdict==='PASS'&&trial?.metrics?.deterministic_gate===true&&s===p.owner?.toLowerCase(),
     close:['ELIGIBLE','HOLD','REVIEW'].includes(trial?.status)&&s===p.owner?.toLowerCase()
   };

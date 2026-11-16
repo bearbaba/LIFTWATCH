@@ -14,3 +14,24 @@ test('analyst may report and assess; owner alone may authorize',()=>{const r={st
 test('cannot authorize when deterministic math disagrees',()=>assert.equal(actionGates({status:'ELIGIBLE',plan,assessment:{verdict:'PASS'},metrics:{deterministic_gate:false}},owner).authorize,false));
 test('FINALIZED majority-disagree fails closed',()=>{assert.equal(classifyTransaction({status:'FINALIZED',consensus:'MAJORITYDISAGREE'}).accepted,false);assert.equal(classifyTransaction({status:'FINALIZED',consensus:'MAJORITYAGREE'}).accepted,true)});
 test('bad address and malformed reads fail closed',()=>{assert.equal(addressValid(owner),true);assert.equal(addressValid('some wallet'),false);assert.throws(()=>normalizeRead('not-json'))});
+
+test('V1.1 only permits original analyst to retry a technical fallback',()=>{
+  const policy={version:'1.1.0',max_assessment_runs:3};
+  const state={status:'REVIEW',plan,assessment:{verdict:'REVIEW',checks:[],format_fallback:true},
+    assessment_runs:1,metrics:{deterministic_gate:true}};
+  assert.equal(actionGates(state,analyst,policy).retry,true);
+  assert.equal(actionGates(state,owner,policy).retry,false);
+  assert.equal(actionGates(state,analyst,{version:'1.0.0'}).retry,false);
+  assert.equal(actionGates({...state,assessment_runs:3},analyst,policy).retry,false);
+});
+test('V1.1 cannot retry substantive REVIEW or a failed math gate',()=>{
+  const policy={version:'1.1.0',max_assessment_runs:3};
+  const state={status:'REVIEW',plan,assessment:{verdict:'REVIEW',checks:[{criterion:'measurement',result:'REVIEW'}],format_fallback:false},assessment_runs:1,metrics:{deterministic_gate:true}};
+  assert.equal(actionGates(state,analyst,policy).retry,false);
+  assert.equal(actionGates({...state,assessment:{...state.assessment,format_fallback:true},metrics:{deterministic_gate:false}},analyst,policy).retry,false);
+});
+test('V1.1 no rollback or signing if state lacks retry metadata',()=>{
+  const policy={version:'1.1.0',max_assessment_runs:3};
+  assert.equal(actionGates({status:'REVIEW',plan,assessment:{verdict:'REVIEW'}},analyst,policy).retry,false);
+  assert.equal(actionGates({status:'ELIGIBLE',plan,assessment:{verdict:'PASS',format_fallback:false},metrics:{deterministic_gate:true}},analyst,policy).retry,false);
+});
