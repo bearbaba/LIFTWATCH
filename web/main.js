@@ -2,7 +2,7 @@ import {connectWallet,read,write,explorer} from './chain.js';
 import {addressValid,actionGates,metrics} from './safety.js';
 const $=id=>document.getElementById(id);
 const previewPlan={min_arm:500,min_lift_bps:150,max_error_increase_bps:100};
-let actor='',address=localStorage.getItem('liftwatch_contract')||'',trial=null,policy=null,busy=false;
+let actor='',address=localStorage.getItem('liftwatch_contract')||'0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106',trial=null,policy=null,busy=false;
 $('contract').value=address;
 const short=v=>v?v.slice(0,7)+'…'+v.slice(-5):'—';
 const number=id=>Number($(id).value);
@@ -106,3 +106,5 @@ for(const id of ['cUsers','cWins','tUsers','tWins','cErrors','tErrors','minArm',
  $(id).addEventListener('input',()=>preview());
 $('note').addEventListener('input',()=>updateNoteHash().catch(e=>setMsg(e.message)));
 render();updateNoteHash().catch(e=>setMsg(e.message));
+// Read actual persisted on-chain state on initial load. Never show demo numbers as a live result until verified.
+guard(latest);
