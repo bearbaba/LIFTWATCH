@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {addressValid,actionGates,classifyTransaction,normalizeRead,metrics} from '../web/safety.js';
+const owner='0x'+'a'.repeat(40),analyst='0x'+'b'.repeat(40);
+const plan={owner,analyst,min_arm:500,min_lift_bps:150,max_error_increase_bps:100};
+const data={control_users:2500,control_success:300,treatment_users:2500,treatment_success:400,control_errors:22,treatment_errors:24};
+test('same integer statistics as contract',()=>{const m=metrics(plan,data);assert.deepEqual([m.control_bps,m.treatment_bps,m.absolute_lift_bps],[1200,1600,400]);assert.equal(m.deterministic_gate,true)});
+test('small groups do not pass despite apparent uplift',()=>assert.equal(metrics(plan,{...data,control_users:250,treatment_users:250,control_success:30,treatment_success:50,control_errors:2,treatment_errors:2}).sample_floor_pass,false));
+test('negative lift never passes',()=>assert.equal(metrics(plan,{...data,control_success:440,treatment_success:260}).deterministic_gate,false));
+test('unsafe error rates block regardless of conversion',()=>assert.equal(metrics(plan,{...data,treatment_errors:200}).error_guardrail_pass,false));
+test('normal approximation rejects too few successes',()=>{const m=metrics(plan,{...data,control_success:1,treatment_success:4});assert.equal(m.normal_approx_valid,false);assert.equal(m.approx_95pct_z_test_pass,false)});
+test('non-significant uplift never passes',()=>assert.equal(metrics(plan,{...data,treatment_success:315}).approx_95pct_z_test_pass,false));
+test('reject invalid counts and fractional users',()=>{assert.throws(()=>metrics(plan,{...data,treatment_success:99999}));assert.throws(()=>metrics(plan,{...data,control_users:2500.5}))});
+test('analyst may report and assess; owner alone may authorize',()=>{const r={status:'REGISTERED',plan};assert.equal(actionGates(r,analyst).report,true);assert.equal(actionGates(r,owner).report,false);const a={status:'EVIDENCE_LOCKED',plan};assert.equal(actionGates(a,analyst).assess,true);const f={status:'ELIGIBLE',plan,assessment:{verdict:'PASS'},metrics:{deterministic_gate:true}};assert.equal(actionGates(f,owner).authorize,true);assert.equal(actionGates(f,analyst).authorize,false)});
+test('cannot authorize when deterministic math disagrees',()=>assert.equal(actionGates({status:'ELIGIBLE',plan,assessment:{verdict:'PASS'},metrics:{deterministic_gate:false}},owner).authorize,false));
+test('FINALIZED majority-disagree fails closed',()=>{assert.equal(classifyTransaction({status:'FINALIZED',consensus:'MAJORITYDISAGREE'}).accepted,false);assert.equal(classifyTransaction({status:'FINALIZED',consensus:'MAJORITYAGREE'}).accepted,true)});
+test('bad address and malformed reads fail closed',()=>{assert.equal(addressValid(owner),true);assert.equal(addressValid('some wallet'),false);assert.throws(()=>normalizeRead('not-json'))});
