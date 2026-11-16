@@ -79,7 +79,7 @@ if(stats.trials>0){
     math:JSON.stringify(stable(m))};
   const referenceBank={};
   for(const [field,value] of Object.entries(fields)){
-   const parts=value.match(/[\\s\\S]{1,220}/g)||[];
+   const parts=value.match(/[\s\S]{1,220}/g)||[];
    if(parts.length>1&&parts[parts.length-1].length<8)parts[parts.length-2]+=parts.pop();
    parts.slice(0,6).forEach((quote,i)=>{if(quote.length>=8&&quote.length<=240)referenceBank[field+':'+(i+1)]={field,quote}});
   }
