@@ -28,8 +28,32 @@ const checks={
  criteria:JSON.stringify(stats?.criteria)===JSON.stringify(['pre_registration','randomization','measurement'])
 };
 if(Object.values(checks).some(v=>v!==true))throw Error('On-chain V1.1 policy/source mismatch '+JSON.stringify({checks,stats}));
+
+const parse=x=>typeof x==='string'?JSON.parse(x):x;
+const stable=x=>Array.isArray(x)?x.map(stable):x&&typeof x==='object'?
+  Object.fromEntries(Object.entries(x).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,stable(v)])):x;
+const sha=x=>createHash('sha256').update(x,'utf8').digest('hex');
+let trialVerification=null;
+if(stats.trials>0){
+ const t=parse(await client.readContract({address,functionName:'get_trial',args:[1],
+   transactionHashVariant:TransactionHashVariant.LATEST_FINAL}));
+ const p=t.plan;
+ const checks={
+  trial_id:t.id===1,
+  exact_owner:p?.owner==='0x4c7cb73ac8f8999af21cfc9ff4cf2333a9508dcb',
+  exact_analyst:p?.analyst==='0xd6b8a3a5eb329410d9504784812b8569afa8c2af',
+  distinct_roles:p?.owner!==p?.analyst,
+  title:p?.title==='Checkout A/B protection',
+  metrics:p?.min_arm===500&&p?.min_lift_bps===150&&p?.max_error_increase_bps===100,
+  plan_commitment:t.plan_sha256===sha(JSON.stringify(stable(p))),
+  status_is_valid:['REGISTERED','EVIDENCE_LOCKED','ELIGIBLE','REVIEW','HOLD','AUTHORIZED','CLOSED'].includes(t.status)
+ };
+ if(Object.values(checks).some(v=>v!==true))throw Error('Unexpected LATEST_FINAL trial data '+JSON.stringify({checks,status:t.status}));
+ trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,checks};
+}
+
 console.log(JSON.stringify({
  verified:true,address,network:'GenLayer Studionet',chain_id:61999,
  source_sha256:createHash('sha256').update(deployed,'utf8').digest('hex'),
- source_match_after_line_endings:true,finality:'LATEST_FINAL',stats,no_write:true
+ source_match_after_line_endings:true,finality:'LATEST_FINAL',stats,trialVerification,no_write:true
 },null,2));
