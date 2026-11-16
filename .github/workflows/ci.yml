@@ -21,3 +21,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run schema:studionet
+      - name: Verify deployed LIFTWATCH source and LATEST_FINAL policy
+        env:
+          LIFTWATCH_CONTRACT_ADDRESS: '0xac231A22c809bD9363012BB9F422E2de2836048D'
+        run: node scripts/verify-live.mjs
