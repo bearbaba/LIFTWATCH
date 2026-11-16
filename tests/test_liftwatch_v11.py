@@ -42,15 +42,14 @@ class LiftwatchTests(unittest.TestCase):
         gl.eq_principle.prompt_comparative=lambda fn,principle:fn()
         def reply(prompt,response_format=None):
             self.assertEqual(response_format,'json')
-            self.assertIn('REFERENCE_BANK=',prompt)
+            self.assertIn('FROZEN_EVIDENCE=',prompt)
             return deepcopy(self.answer)
         gl.nondet.exec_prompt=reply
     def sign(self,account):gl.message.sender_address=Address(account)
     def correct(self,result='PASS'):
         self.answer={'checks':[
             {'criterion':criterion,'result':result,'reason':'The frozen signed notes are compared to this preregistered trial requirement.',
-             } for criterion,key in
-            [('pre_registration','hypothesis:1'),('randomization','randomization:1'),('measurement','measurement:1')]]}
+             } for criterion in ['pre_registration','randomization','measurement']]}
     def report(self,c=2500,cc=300,t=2500,tc=400,ce=22,te=24,notes=NOTES):
         self.sign(ANALYST)
         return self.g.submit_results(self.trial,c,cc,t,tc,ce,te,notes,m.digest(notes))
