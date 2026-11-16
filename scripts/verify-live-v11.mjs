@@ -112,7 +112,28 @@ if(stats.trials>0){
   assessmentVerification={verdict:a.verdict,status:t.status,assessment_runs:t.assessment_runs,
     criteria:a.checks.map(x=>x.criterion+':'+x.result),checks:assessmentChecks};
  }
- trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,checks,reportVerification,assessmentVerification};
+ let authorizationVerification=null;
+ if(t.status==='AUTHORIZED'){
+  const auth=t.authorization||{};
+  const authorizationChecks={
+   scope:auth.scope==='NON_EXECUTING_RELEASE_DECISION',
+   trial_id:auth.trial_id===1&&auth.trial_id===t.id,
+   plan_sha256:auth.plan_sha256===t.plan_sha256&&t.plan_sha256===sha(JSON.stringify(stable(p))),
+   report_sha256:auth.report_sha256===t.report_sha256&&t.report_sha256===sha(JSON.stringify(stable(r))),
+   ai_pass:t.assessment?.verdict==='PASS'&&t.assessment?.format_fallback===false,
+   deterministic_gate:m.deterministic_gate===true,
+   distinct_wallets:p.owner!==p.analyst,
+   assessment_references:assessmentVerification?.checks?.three_criteria_exact_citations===true,
+   no_external_execution:auth.scope==='NON_EXECUTING_RELEASE_DECISION'
+  };
+  if(Object.values(authorizationChecks).some(v=>v!==true))
+   throw Error('Authorization receipt validation failed '+JSON.stringify({authorizationChecks,auth}));
+  authorizationVerification={scope:auth.scope,trial_id:auth.trial_id,
+    plan_sha256:auth.plan_sha256,report_sha256:auth.report_sha256,
+    checks:authorizationChecks};
+ }
+ trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,
+    checks,reportVerification,assessmentVerification,authorizationVerification};
 }
 
 console.log(JSON.stringify({
