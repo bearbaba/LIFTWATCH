@@ -1,10 +1,10 @@
-# LIFTWATCH — signed Studionet acceptance plan
+# LIFTWATCH — reproducible signed Studionet acceptance
 
-**Target network:** GenLayer Studionet, chain ID **61999**, https://studio.genlayer.com. All example data is fabricated for protocol testing and must be labeled accordingly. These are requested test steps, not recorded live transactions.
+**Current verified deployment:** [LIFTWATCH V1.1 `0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106`](https://studio.genlayer.com/?import-contract=0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106), GenLayer Studionet chain **61999**. Trial #1 completed the **signed, accepted and independently verified** `REGISTERED → EVIDENCE_LOCKED → ELIGIBLE → AUTHORIZED` path. See the four transaction links and live evidence verifier in [README](../README.md#signed-on-chain-acceptance--v11). All experiment counts are synthetic. This guide is also a reproducible test procedure, not a claim of live customer exposure.
 
 ## Step 0 — deploy and verify
 
-Upload [contracts/liftwatch.py](../contracts/liftwatch.py) into Studio; use **Normal / Full Consensus** and **Simulation OFF**. Deploy `LiftWatch()` **without constructor arguments**. Save the address and deployment hash; independently verify `LATEST_FINAL stats()` has name `LIFTWATCH`, version `1.0.0`, nonexecuting authorization and deterministic citation IDs. Compare actual RPC source/ABI to this source (only line-ending normalization allowed).
+Deploy [V1.1 source `contracts/liftwatch_v11.py`](../contracts/liftwatch_v11.py) as a **separate** `LiftWatch()` instance without constructor arguments; use **Normal / Full Consensus** and **Simulation OFF**. Verify `LATEST_FINAL stats()` has `version=1.1.0`, `citation_mode=CONTRACT_ASSIGNED_LITERAL_REFERENCES`, `retry_policy=FORMAT_REVIEW_ONLY`, `max_assessment_runs=3` and `rollout=NON_EXECUTING_AUTHORIZATION`. Compare deployed RPC code with the exact GitHub source (line-ending normalization only). The verified live release address is above; do not redeploy unless conducting an explicitly separate experiment.
 
 Use **two distinct wallets**: product **owner** (first Studio account) and **analyst** (second Studio account). Each must sign the corresponding method; wrong-wallet attempts must fail. Copy the **analyst** wallet address for preregistration.
 
@@ -55,9 +55,9 @@ Read `get_trial(trial_id)`, inspect `EVIDENCE_LOCKED`, committed report SHA-256,
 
 ## Step 3 — same analyst signs `assess_trial`
 
-Verify **FINALIZED / GenVM SUCCESS / MAJORITYAGREE**, then the independent `LATEST_FINAL get_trial` readback. Three method checks must have valid reference IDs; their results can legitimately be PASS, FAIL or REVIEW. Only `ELIGIBLE` with `assessment.verdict=PASS` and `metrics.deterministic_gate=true` qualifies for the next step.
+Verify **FINALIZED / GenVM SUCCESS / MAJORITYAGREE** and independent `LATEST_FINAL get_trial` readback. The contract itself attaches literal reference IDs from frozen data to exactly three methodology decisions. They can legitimately be PASS, FAIL or REVIEW. Only stored `ELIGIBLE`, `assessment.verdict=PASS`, three verifiable citations and `metrics.deterministic_gate=true` qualify for authorization. If the on-chain verdict is technical `REVIEW` with `format_fallback=true`, the **same Analyst** may call `retry_format_review(trial_id)` while fewer than three total attempts have been recorded; do not retry substantive REVIEW or mathematical HOLD.
 
-If the evaluator returns REVIEW, inspect whether the supplied note actually proves random assignment; the note is signed but **not an independently fetched assignment log**. Preserve this valid limitation rather than forcing a PASS.
+An accepted PASS confirms internal consistency of signed notes, **not independent verification** of random assignment, conversion logs or causality. Preserve any valid substantive REVIEW rather than forcing PASS.
 
 ## Step 4 — owner signs `authorize_rollout` only if ELIGIBLE
 
