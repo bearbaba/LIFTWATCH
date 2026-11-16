@@ -71,7 +71,48 @@ if(stats.trials>0){
   if(Object.values(reportChecks).some(v=>v!==true))throw Error('Committed LIFTWATCH report mismatch '+JSON.stringify({reportChecks,report:r,metrics:m}));
   reportVerification={report_sha256:t.report_sha256,methods_sha256:r.methods_sha256,metrics:m,checks:reportChecks};
  }
- trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,checks,reportVerification};
+ let assessmentVerification=null;
+ if(['ELIGIBLE','AUTHORIZED','HOLD','REVIEW','CLOSED'].includes(t.status) && t.assessment?.verdict){
+  const a=t.assessment;
+  const fields={hypothesis:p.hypothesis,randomization:p.randomization,
+    measurement:p.metric_definition,notes:r.methods_note,population:p.population,
+    math:JSON.stringify(stable(m))};
+  const referenceBank={};
+  for(const [field,value] of Object.entries(fields)){
+   const parts=value.match(/[\\s\\S]{1,220}/g)||[];
+   if(parts.length>1&&parts[parts.length-1].length<8)parts[parts.length-2]+=parts.pop();
+   parts.slice(0,6).forEach((quote,i)=>{if(quote.length>=8&&quote.length<=240)referenceBank[field+':'+(i+1)]={field,quote}});
+  }
+  const seen=new Set(),required={
+   pre_registration:'hypothesis',randomization:'randomization',measurement:'measurement'};
+  const consistentChecks=Array.isArray(a.checks)&&a.checks.length===3&&a.checks.every(c=>{
+   if(!Object.hasOwn(required,c.criterion)||seen.has(c.criterion)||c.result!=='PASS'||typeof c.reason!=='string'||c.reason.length<12)return false;
+   seen.add(c.criterion);
+   const refs=c.references;
+   if(!Array.isArray(refs)||refs.length<2||refs.length>4)return false;
+   const ids=new Set(),categories=new Set();
+   for(const item of refs){
+    const original=referenceBank[item.ref_id];
+    if(!original||original.field!==item.field||original.quote!==item.quote||ids.has(item.ref_id))return false;
+    ids.add(item.ref_id);categories.add(item.field);
+   }
+   return categories.has('notes')&&categories.has(required[c.criterion]);
+  });
+  const history=Array.isArray(t.assessment_history)?t.assessment_history:[];
+  const assessmentChecks={
+   consensus_pass:a.verdict==='PASS'&&a.format_fallback===false,
+   three_criteria_exact_citations:consistentChecks,
+   assessment_runs:t.assessment_runs===1&&history.length===1,
+   accepted_pass_history:history[0]?.verdict==='PASS'&&history[0]?.decision==='ELIGIBLE'&&
+      history[0]?.format_fallback===false,
+   history_sha256:history[0]?.assessment_sha256===sha(JSON.stringify(stable(a))),
+   current_state:['ELIGIBLE','AUTHORIZED'].includes(t.status)
+  };
+  if(Object.values(assessmentChecks).some(v=>v!==true))throw Error('Independent AI assessment verification failed '+JSON.stringify({assessmentChecks,verdict:a.verdict,status:t.status}));
+  assessmentVerification={verdict:a.verdict,status:t.status,assessment_runs:t.assessment_runs,
+    criteria:a.checks.map(x=>x.criterion+':'+x.result),checks:assessmentChecks};
+ }
+ trialVerification={id:t.id,status:t.status,owner:p.owner,analyst:p.analyst,plan_sha256:t.plan_sha256,checks,reportVerification,assessmentVerification};
 }
 
 console.log(JSON.stringify({
