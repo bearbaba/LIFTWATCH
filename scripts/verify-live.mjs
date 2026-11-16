@@ -77,10 +77,17 @@ if(stats.trials>=1){
       trialChecks.deterministic_math=Object.entries(math).every(([key,value])=>trial.metrics?.[key]===value);
     }
   }
+  if(trial.status==='REVIEW'){
+    const assessment=trial.assessment||{};
+    trialChecks.fail_closed_review=assessment.verdict==='REVIEW'&&
+      Array.isArray(assessment.checks)&&assessment.checks.length===0&&
+      assessment.reason==='Methodology verdict format or citation IDs could not be verified.';
+  }
   if(Object.values(trialChecks).some(v=>v!==true))throw Error('LATEST_FINAL trial verification failure: '+JSON.stringify({trialChecks,status:trial.status}));
   trialVerification={id:trial.id,status:trial.status,owner:plan.owner,analyst:plan.analyst,
     plan_sha256:trial.plan_sha256,report_sha256:trial.report_sha256||null,
-    methods_sha256:report?.methods_sha256||null,metrics:math,checks:trialChecks};
+    methods_sha256:report?.methods_sha256||null,
+    assessment:trial.assessment||null,metrics:math,checks:trialChecks};
 }
 
 console.log(JSON.stringify({
