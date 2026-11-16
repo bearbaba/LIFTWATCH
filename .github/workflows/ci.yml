@@ -25,3 +25,7 @@ jobs:
         env:
           LIFTWATCH_CONTRACT_ADDRESS: '0xac231A22c809bD9363012BB9F422E2de2836048D'
         run: node scripts/verify-live.mjs
+      - name: Attest independently deployed LIFTWATCH V1.1 (LATEST_FINAL)
+        env:
+          LIFTWATCH_V11_ADDRESS: '0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106'
+        run: node scripts/verify-live-v11.mjs
