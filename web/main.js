@@ -1,4 +1,4 @@
-import {connectWallet,read,write,waitForFinalized,getTransactionState,explorer} from './chain.js';
+import {connectWallet,subscribeWalletChanges,read,write,waitForFinalized,getTransactionState,explorer} from './chain.js';
 import {finalReceipt,normalizePendingTx} from './tx-status.js';
 import {addressValid,actionGates,metrics} from './safety.js';
 const $=id=>document.getElementById(id);
@@ -33,6 +33,12 @@ const planInputs=()=>({title:$('title').value.trim(),hypothesis:$('hypothesis').
 async function sha256(text){const data=new TextEncoder().encode(text),hash=await crypto.subtle.digest('SHA-256',data);
  return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');}
 function setMsg(m){$('log').textContent=m}
+function walletFeedback(message,tone='warning'){
+ const node=$('walletAlert');
+ node.hidden=false;
+ node.className='wallet-alert is-'+tone;
+ node.textContent=message;
+}
 function condition(name,pass,foot){const row=document.createElement('div');row.className='gate-line';
  const title=document.createElement('span'),status=document.createElement('strong');
  title.textContent=name;status.textContent=pass?'PASS':'BLOCK';status.className=pass?'':'fail';
@@ -91,6 +97,7 @@ function render(){const live=!!trial;
     'Technical schema REVIEW. Only the original analyst may retry on V1.1, within the bounded limit.':
     'Illustrative metric math is not GenLayer validator consensus; an accepted live trial must be read back at LATEST_FINAL.');
  $('connect').textContent=actor?short(actor)+' ✓':'Connect wallet ↗';
+ $('connect').disabled=busy;
  const gates=actionGates(trial,actor,policy);
  for(const key of ['preregister','report','assess','retry','authorize','close']){
   const lookup={preregister:'register',report:'report',assess:'assess',retry:'retry',authorize:'authorize',close:'close'}[key];
@@ -120,7 +127,11 @@ async function latest(){address=$('contract').value.trim();if(!addressValid(addr
  trial=value;
  setMsg('LATEST_FINAL VERIFIED\nTrial #'+id+' · '+trial.status+'\nPreregistration commitment: '+trial.plan_sha256+'\nReport commitment: '+(trial.report_sha256||'NOT YET SUBMITTED')+'\nAssessment: '+(trial.assessment?.verdict||'NOT ASSESSED')+'\nOnly accepted consensus and persisted state count.');
 }
-async function guard(fn){if(busy)return;busy=true;render();try{await fn()}catch(e){setMsg('ACTION BLOCKED / '+String(e.message||e))}finally{busy=false;render()}}
+async function guard(fn,{wallet=false}={}){if(busy){if(wallet)walletFeedback('The app is loading on-chain data. Try Connect wallet again after the current read finishes.','warning');return;}busy=true;render();try{await fn()}catch(e){
+  const message=String(e.message||e);
+  setMsg('ACTION BLOCKED / '+message);
+  if(wallet)walletFeedback(message+'\nIf you use a wallet inside GenLayer Studio, connect the same address through a browser extension on this website.','error');
+ }finally{busy=false;render()}}
 async function sign(method,args){if(!addressValid(address)||!actor)throw Error('Connect wallet and verified contract first.');
  const gates=actionGates(trial,actor,policy),key={preregister:'register',submit_results:'report',assess_trial:'assess',retry_format_review:'retry',authorize_rollout:'authorize',close_trial:'close'}[method];
  if(pendingTx)throw Error('A previously submitted transaction must be verified before signing again. Use Resume verification; never resubmit blindly.');
@@ -185,7 +196,24 @@ async function verifyPending(){
  }
 }
 
-$('connect').addEventListener('click',()=>guard(async()=>{actor=await connectWallet();setMsg('Wallet '+actor+' on Studionet. Verify deployed contract before writing.');}));
+$('connect').addEventListener('click',()=>guard(async()=>{
+ walletFeedback('Requesting wallet approval… Check the browser extension window.','warning');
+ actor=await connectWallet();
+ subscribeWalletChanges({
+  onAccountsChanged:()=>{
+    actor='';
+    walletFeedback('Wallet account changed. Reconnect before signing.','warning');
+    setMsg('Wallet account changed; signing is locked until reconnection.');render();
+  },
+  onChainChanged:()=>{
+    actor='';
+    walletFeedback('Wallet network changed. Reconnect and approve Studionet (61999).','warning');
+    setMsg('Network changed; signing is locked until reconnection.');render();
+  }
+ });
+ walletFeedback('Wallet connected: '+short(actor)+' · GenLayer Studionet (61999).','success');
+ setMsg('Wallet '+actor+' on Studionet. Verify deployed contract before writing.');
+},{wallet:true}));
 $('contract').addEventListener('change',()=>{address=$('contract').value.trim();if(addressValid(address))localStorage.setItem('liftwatch_contract',address);trial=null;policy=null;pendingTx=loadPending(address);render()});
 $('load').addEventListener('click',()=>guard(latest));
 $('resume').addEventListener('click',()=>guard(verifyPending));
@@ -214,7 +242,4 @@ render();updateNoteHash().catch(e=>setMsg(e.message));
 // Read actual persisted on-chain state on initial load. Never show demo numbers as a live result until verified.
 showPending();
 guard(latest);
-if(window.ethereum?.on){
- window.ethereum.on('accountsChanged',()=>{actor='';setMsg('Wallet account changed. Reconnect before signing.');render()});
- window.ethereum.on('chainChanged',()=>{actor='';setMsg('Network changed. Switch to Studionet (61999) and reconnect.');render()});
-}
+
