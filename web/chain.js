@@ -10,6 +10,7 @@ async function sdk(){
     ]).then(([client,chains,types])=>({
       createClient:client.createClient,studionet:chains.studionet,
       TransactionHashVariant:types.TransactionHashVariant,
+      TransactionStatus:types.TransactionStatus,
     }));
   }
   try{return await sdkPromise}
@@ -40,4 +41,20 @@ export async function write(address,actor,method,args=[]){
   if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Transaction submission returned no valid hash.');
   return hash;
 }
+/** SDK v1.1.8 API: FINALIZED is more conservative than ACCEPTED.
+ * A timeout does NOT mean the write was rejected: the returned hash is durable.
+ */
+export async function waitForFinalized(hash){
+  if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Invalid GenLayer transaction hash');
+  const {createClient,studionet,TransactionStatus}=await sdk();
+  return createClient({chain:studionet}).waitForTransactionReceipt({
+    hash,status:TransactionStatus.FINALIZED,interval:3500,retries:125,fullTransaction:false
+  });
+}
+export async function getTransactionState(hash){
+  if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Invalid GenLayer transaction hash');
+  const {createClient,studionet}=await sdk();
+  return createClient({chain:studionet}).getTransaction({hash});
+}
+
 export const explorer=hash=>'https://explorer-studio.genlayer.com/tx/'+encodeURIComponent(hash);
