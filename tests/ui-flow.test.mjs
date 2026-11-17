@@ -140,3 +140,21 @@ test('wallet account change revokes signing capabilities in dashboard',async()=>
  assert.equal(h.$('authorize').disabled,true);
  assert.match(h.$('log').textContent,/Wallet account changed/);
 });
+
+test('accepted AI evidence inspector renders real literal citations as text, not HTML',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER});
+ await flush();
+ h.trial.assessment.checks=[{
+   criterion:'measurement',result:'PASS',reason:'The locked conversion endpoint matches the registered metric.',
+   references:[{ref_id:'measurement:1',field:'measurement',quote:'Unique completed checkouts per eligible visitor. <script>alert(1)</script>'}]
+ }];
+ await h.click('load');
+ const blocks=h.$('evidenceInspector').children;
+ assert.equal(blocks.length,1);
+ assert.match(blocks[0].children[0].textContent,/measurement · PASS/);
+ assert.match(blocks[0].children[1].textContent,/locked conversion endpoint/);
+ const ref=blocks[0].children[2];
+ assert.match(ref.children[0].textContent,/measurement:1/);
+ assert.match(ref.children[1].textContent,/<script>alert\(1\)<\/script>/);
+ assert.equal(ref.children[1].innerHTML,'','must not create script markup from untrusted evidence');
+});
