@@ -36,3 +36,12 @@
  .workspace-ready .top{padding:12px 0}
 }
 @media(prefers-reduced-motion:reduce){.workspace-tab{transition:none}}
+
+.wallet-alert{position:relative;z-index:20;margin:12px 0 4px;padding:12px 15px;border:1px solid #497a53;
+ border-radius:9px;font-size:12px;font-weight:600;line-height:1.55;background:#15271c;color:#e3f5d3;
+ white-space:pre-line;overflow-wrap:anywhere;box-shadow:0 4px 20px #0002}
+.wallet-alert[hidden]{display:none!important}
+.wallet-alert.is-warning{border-color:#ad8540;background:#292218;color:#ffe3b2}
+.wallet-alert.is-error{border-color:#b26855;background:#2c1b19;color:#ffe2d8}
+.wallet-alert.is-success{border-color:#729d63;background:#163223;color:#d7ffbd}
+#connect:disabled{cursor:wait;opacity:.76}
