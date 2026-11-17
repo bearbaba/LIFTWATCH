@@ -28,5 +28,9 @@ export function normalizePendingTx(value,address){
       'authorize_rollout','close_trial'].includes(value.method)||
     typeof value.contract!=='string'||value.contract.toLowerCase()!==address.toLowerCase())
     return null;
-  return {hash:value.hash,method:value.method,contract:address};
+  const trialId=value.trialId;
+  const signer=value.signer;
+  if(trialId!=null&&(!Number.isSafeInteger(trialId)||trialId<=0))return null;
+  if(typeof signer!=='string'||!addressPattern.test(signer))return null;
+  return {hash:value.hash,method:value.method,contract:address,trialId:trialId??null,signer:signer.toLowerCase()};
 }
