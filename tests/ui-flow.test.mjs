@@ -25,7 +25,7 @@ function element(){
   append(...nodes){this.children.push(...nodes)},
  };
 }
-function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=false}={}){
+function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=false,connectError=null}={}){
  const nodes=new Map(),events={},storage=new Map(),writes=[];
  const initial={title:'Checkout A/B protection',hypothesis:'A'.repeat(50),metricDef:'A'.repeat(50),
   population:'New and returning users in one period.',randomization:'Stable user ID 50/50 split.',
@@ -39,7 +39,10 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
  },metrics:{deterministic_gate:true},assessment_runs:1};
  let shouldTimeout=timeout;
  const deps={
-  connectWallet:async()=>actor,
+  connectWallet:async()=>{if(connectError)throw connectError;return actor},
+  subscribeWalletChanges:({onAccountsChanged,onChainChanged})=>{
+    events.accountsChanged=onAccountsChanged;events.chainChanged=onChainChanged;return ()=>{};
+  },
   read:async(_address,method)=>method==='stats'?policy:structuredClone(trial),
   write:async(_address,_actor,method,args)=>{writes.push({method,args});
    const newStatus={
@@ -56,7 +59,7 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
  };
  const source=readFileSync(new URL('../web/main.js',import.meta.url),'utf8')
   .replace(/^import .*;\s*$/gm,'');
- const prelude=`const {connectWallet,read,write,waitForFinalized,getTransactionState,explorer}=globalThis.deps;
+ const prelude=`const {connectWallet,subscribeWalletChanges,read,write,waitForFinalized,getTransactionState,explorer}=globalThis.deps;
 const {finalReceipt,normalizePendingTx}=globalThis.txstatus;
 const {addressValid,actionGates,metrics}=globalThis.safety;`;
  runInNewContext(prelude+source,{
@@ -160,4 +163,30 @@ test('accepted AI evidence inspector renders real literal citations as text, not
  assert.match(ref.children[0].textContent,/measurement:1/);
  assert.match(ref.children[1].textContent,/<script>alert\(1\)<\/script>/);
  assert.equal(ref.children[1].innerHTML,'','must not create script markup from untrusted evidence');
+});
+
+test('connection failures are visible in the current Overview, not a hidden console tab',async()=>{
+ const h=harness({connectError:new Error('No browser wallet detected')});
+ await flush();await h.click('connect');
+ assert.equal(h.$('walletAlert').hidden,false);
+ assert.match(h.$('walletAlert').textContent,/No browser wallet detected/);
+ assert.equal(h.$('walletAlert').className,'wallet-alert is-error');
+ assert.equal(h.$('connect').textContent,'Connect wallet ↗');
+});
+test('successful wallet connect shows identity and Studionet next to Connect button',async()=>{
+ const h=harness({actor:OWNER});
+ await flush();await h.click('connect');
+ assert.equal(h.$('walletAlert').hidden,false);
+ assert.equal(h.$('walletAlert').className,'wallet-alert is-success');
+ assert.match(h.$('walletAlert').textContent,/61999/);
+ assert.match(h.$('walletAlert').textContent,/Wallet connected/);
+ assert.match(h.$('connect').textContent,/✓/);
+});
+test('switching the connected wallet locks signing and shows a visible warning',async()=>{
+ const h=harness({status:'ELIGIBLE',actor:OWNER});
+ await flush();await h.click('connect');
+ h.events.chainChanged('0x1');
+ assert.equal(h.$('authorize').disabled,true);
+ assert.equal(h.$('walletAlert').className,'wallet-alert is-warning');
+ assert.match(h.$('walletAlert').textContent,/Reconnect/);
 });
