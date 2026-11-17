@@ -29,7 +29,7 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
  execution='FINISHED_WITH_RETURN',consensus='MAJORITY_AGREE',finalStatus='FINALIZED',writeError=null,studioPartial=false,rpcReceipt=null}={}){
  const nodes=new Map(),events={},storage=new Map(),writes=[];
  const initial={title:'Checkout A/B protection',hypothesis:'A'.repeat(50),metricDef:'A'.repeat(50),
-  population:'New and returning users in one period.',randomization:'Stable user ID 50/50 split.',
+  population:'New and returning users in one period.',randomization:'Stable user ID hashing into mutually exclusive 50/50 groups before experiment exposure.',
   analyst:ANALYST,trialId:'1',cUsers:'2500',cWins:'300',tUsers:'2500',tWins:'400',
   cErrors:'22',tErrors:'24',minArm:'500',minLift:'150',maxErr:'100',
   note:'Experiment assignment used a persistent user-ID hash with a frozen 50/50 split. All eligible visitors were counted once during the same two-week window; the primary event was completed checkout. Errors were tracked consistently in both arms and no eligibility rule was changed after preregistration.'};
