@@ -9,6 +9,8 @@
 
 ## Live website demo — Trial #2 (17 Nov 2026)
 
+**[Project submission & verification evidence (17 Nov 2026)](docs/LIFTWATCH_Project_Evidence_2026-11-17.md)** — complete reviewer checklist, contract links, video and transaction proof.
+
 [![Watch the end-to-end LIFTWATCH demo on YouTube](https://img.youtube.com/vi/BTvwC1kBBiI/hqdefault.jpg)](https://youtu.be/BTvwC1kBBiI)
 
 **[▶ Watch the LIFTWATCH real-wallet demo (YouTube)](https://youtu.be/BTvwC1kBBiI)** · [Open the live app](https://liftwatch-ten.vercel.app)
