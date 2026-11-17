@@ -67,7 +67,7 @@ export async function waitForFinalized(hash,onProgress){
   const {createClient,studionet,TransactionStatus}=await sdk();
   const client=createClient({chain:studionet});
   const finality=client.waitForTransactionReceipt({
-    hash,status:TransactionStatus.FINALIZED,interval:3500,retries:125,fullTransaction:false
+    hash,status:TransactionStatus.FINALIZED,interval:3500,retries:125,fullTransaction:true
   });
   if(typeof onProgress!=='function')return finality;
   let monitoring=true,canceledResolve;
@@ -95,4 +95,18 @@ export async function getTransactionState(hash){
   return createClient({chain:studionet}).getTransaction({hash});
 }
 
+/** Read the canonical RPC receipt by the original hash when Studio SDK fields are incomplete. */
+export async function getConsensusReceipt(hash){
+ if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Invalid GenLayer transaction hash');
+ const {createClient,studionet}=await sdk();
+ const raw=await createClient({chain:studionet}).request({
+  method:'gen_getTransactionReceipt',params:[{txId:hash}]
+ });
+ const receipt=raw?.result&&typeof raw.result==='object'?raw.result:raw;
+ if(!receipt||typeof receipt!=='object')throw Error('Consensus receipt unavailable');
+ const receivedId=receipt.id??receipt.txId??receipt.hash;
+ if(typeof receivedId!=='string'||receivedId.toLowerCase()!==hash.toLowerCase())
+  throw Error('Consensus receipt hash does not match the requested transaction');
+ return receipt;
+}
 export const explorer=hash=>'https://explorer-studio.genlayer.com/tx/'+encodeURIComponent(hash);

@@ -1,5 +1,5 @@
-import {connectWallet,subscribeWalletChanges,read,write,waitForFinalized,getTransactionState,explorer} from './chain.js';
-import {finalReceipt,normalizePendingTx} from './tx-status.js';
+import {connectWallet,subscribeWalletChanges,read,write,waitForFinalized,getTransactionState,getConsensusReceipt,explorer} from './chain.js';
+import {finalReceipt,combineFinalChecks,normalizePendingTx} from './tx-status.js';
 import {addressValid,actionGates,metrics} from './safety.js';
 const $=id=>document.getElementById(id);
 const previewPlan={min_arm:500,min_lift_bps:150,max_error_increase_bps:100};
@@ -218,9 +218,17 @@ async function verifyPending(){
  try{
    let receipt=await waitForFinalized(record.hash,state=>followChainStatus(state,record));
    let check=finalReceipt(receipt);
-   if(check.finalized&&!check.success&&check.consensus==='UNKNOWN'){
-     receipt=await getTransactionState(record.hash);
-     check=finalReceipt(receipt);
+   if(check.finalized&&(check.execution==='UNKNOWN'||check.consensus==='UNKNOWN')){
+     // Studio receipts may expose SUCCESS only in consensus_data.leader_receipt.
+     // Fill missing consensus/exec fields via read-only, same-hash RPC sources.
+     for(const reader of [getTransactionState,getConsensusReceipt]){
+       if(check.execution!=='UNKNOWN'&&check.consensus!=='UNKNOWN')break;
+       try{check=combineFinalChecks(check,finalReceipt(await reader(record.hash)));}
+       catch(e){
+         if(String(e.message||e).startsWith('Conflicting '))throw e;
+         // Continue to the next source; never resubmit or claim a false failure.
+       }
+     }
    }
    if(check.status==='CANCELED'){
      savePending(null);showPending();

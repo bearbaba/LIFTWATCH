@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {webcrypto} from 'node:crypto';
-import {finalReceipt,normalizePendingTx} from '../web/tx-status.js';
+import {finalReceipt,combineFinalChecks,normalizePendingTx} from '../web/tx-status.js';
 import {addressValid,actionGates,metrics} from '../web/safety.js';
 
 const OWNER='0x'+'a'.repeat(40),ANALYST='0x'+'b'.repeat(40);
@@ -26,7 +26,7 @@ function element(){
  };
 }
 function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=false,connectError=null,
- execution='FINISHED_WITH_RETURN',consensus='MAJORITY_AGREE',finalStatus='FINALIZED',writeError=null}={}){
+ execution='FINISHED_WITH_RETURN',consensus='MAJORITY_AGREE',finalStatus='FINALIZED',writeError=null,studioPartial=false,rpcReceipt=null}={}){
  const nodes=new Map(),events={},storage=new Map(),writes=[];
  const initial={title:'Checkout A/B protection',hypothesis:'A'.repeat(50),metricDef:'A'.repeat(50),
   population:'New and returning users in one period.',randomization:'Stable user ID 50/50 split.',
@@ -58,19 +58,23 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
    onProgress?.({statusName:'ACCEPTED'});
    if(shouldTimeout)throw Error('temporary RPC timeout');
    onProgress?.({statusName:finalStatus});
-   return {statusName:finalStatus,resultName:consensus,txExecutionResultName:execution};
+   return studioPartial?
+    {status_name:finalStatus,consensus_data:{leader_receipt:[{execution_result:'SUCCESS'}]}}:
+    {statusName:finalStatus,resultName:consensus,txExecutionResultName:execution};
   },
-  getTransactionState:async()=>({statusName:'FINALIZED',resultName:'MAJORITY_AGREE',
-   txExecutionResultName:'FINISHED_WITH_RETURN'}),
+  getTransactionState:async()=>studioPartial?
+    {status_name:finalStatus,consensus_data:{leader_receipt:[{execution_result:'SUCCESS'}]}}:
+    {statusName:'FINALIZED',resultName:'MAJORITY_AGREE',txExecutionResultName:'FINISHED_WITH_RETURN'},
+  getConsensusReceipt:async()=>rpcReceipt??{id:HASH,status:7,result:6,txExecutionResult:1},
   explorer:hash=>'https://explorer-studio.genlayer.com/tx/'+hash
  };
  const source=readFileSync(new URL('../web/main.js',import.meta.url),'utf8')
   .replace(/^import .*;\s*$/gm,'');
- const prelude=`const {connectWallet,subscribeWalletChanges,read,write,waitForFinalized,getTransactionState,explorer}=globalThis.deps;
-const {finalReceipt,normalizePendingTx}=globalThis.txstatus;
+ const prelude=`const {connectWallet,subscribeWalletChanges,read,write,waitForFinalized,getTransactionState,getConsensusReceipt,explorer}=globalThis.deps;
+const {finalReceipt,combineFinalChecks,normalizePendingTx}=globalThis.txstatus;
 const {addressValid,actionGates,metrics}=globalThis.safety;`;
  runInNewContext(prelude+source,{
-  deps,txstatus:{finalReceipt,normalizePendingTx},safety:{addressValid,actionGates,metrics},
+  deps,txstatus:{finalReceipt,combineFinalChecks,normalizePendingTx},safety:{addressValid,actionGates,metrics},
   document:{getElementById:$,createElement:element},window:{ethereum:{on:(name,cb)=>events[name]=cb}},
   localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),
     removeItem:k=>storage.delete(k)},
@@ -278,4 +282,41 @@ test('submission error with no returned hash is UNVERIFIED rather than falsely N
  assert.equal(h.$('txTrackerHash').hidden,true);
  assert.equal(h.$('txTrackerResume').hidden,true);
  assert.equal(h.writes.length,0);
+});
+
+test('Studio FINALIZED nested SUCCESS + hash-bound consensus receipt confirms new Trial #2',async()=>{
+ const h=harness({status:'AUTHORIZED',actor:OWNER,formatFallback:false,studioPartial:true,
+  rpcReceipt:{id:HASH,status:7,result:6,txExecutionResult:1}});
+ await flush();await h.click('connect');await h.click('preregister');
+ assert.equal(h.$('txTrackerLabel').textContent,'SUCCESS');
+ assert.equal(h.$('trialId').value,'2');
+ assert.equal(h.trial.id,2);
+ assert.equal(h.$('txBox').hidden,true);
+ assert.equal(h.storage.size,0);
+ assert.equal(h.writes.length,1);
+});
+test('Studio shape, canonical numbers and CamelCase return correct verdicts',()=>{
+ const partial=finalReceipt({status_name:'FINALIZED',
+  consensus_data:{leader_receipt:[{execution_result:'SUCCESS'}]}});
+ assert.equal(partial.finalized,true);
+ assert.equal(partial.execution,'FINISHED_WITH_RETURN');
+ assert.equal(partial.consensus,'UNKNOWN');
+ assert.equal(partial.success,false);
+ const canonical=finalReceipt({status:7,result:6,txExecutionResult:1});
+ assert.equal(canonical.success,true);
+ assert.equal(combineFinalChecks(partial,canonical).success,true);
+ assert.equal(finalReceipt({status:7,result:2,txExecutionResult:1}).success,false);
+ assert.equal(finalReceipt({statusName:'Finalized',resultName:'MajorityAgree',
+   txExecutionResultName:'FinishedWithReturn'}).success,true);
+ assert.throws(()=>combineFinalChecks(
+  finalReceipt({status:7,result:2}),canonical),/Conflicting consensus/);
+});
+test('Missing consensus in both receipts stays UNVERIFIED and preserves original hash',async()=>{
+ const h=harness({status:'AUTHORIZED',actor:OWNER,formatFallback:false,studioPartial:true,
+  rpcReceipt:{id:HASH,status:7}});
+ await flush();await h.click('connect');await h.click('preregister');
+ assert.equal(h.$('txTrackerLabel').textContent,'UNVERIFIED');
+ assert.equal(h.$('txBox').hidden,false);
+ assert.equal(h.storage.size,1);
+ assert.equal(h.writes.length,1);
 });
