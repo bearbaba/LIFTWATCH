@@ -1,8 +1,25 @@
-import {connectWallet,read,write,explorer} from './chain.js';
+import {connectWallet,read,write,waitForFinalized,getTransactionState,explorer} from './chain.js';
+import {finalReceipt,normalizePendingTx} from './tx-status.js';
 import {addressValid,actionGates,metrics} from './safety.js';
 const $=id=>document.getElementById(id);
 const previewPlan={min_arm:500,min_lift_bps:150,max_error_increase_bps:100};
 let actor='',address=localStorage.getItem('liftwatch_contract')||'0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106',trial=null,policy=null,busy=false;
+const pendingKey=addr=>'liftwatch_pending_'+addr.toLowerCase();
+function loadPending(addr){
+  try{return normalizePendingTx(JSON.parse(localStorage.getItem(pendingKey(addr))),addr)}
+  catch{return null}
+}
+let pendingTx=loadPending(address);
+function savePending(value){
+  pendingTx=value;
+  if(value)localStorage.setItem(pendingKey(address),JSON.stringify(value));
+  else localStorage.removeItem(pendingKey(address));
+}
+function showPending(){
+  if(!pendingTx)return;
+  $('txBox').hidden=false;
+  $('txLink').href=explorer(pendingTx.hash);
+}
 $('contract').value=address;
 const short=v=>v?v.slice(0,7)+'…'+v.slice(-5):'—';
 const number=id=>Number($(id).value);
@@ -50,9 +67,11 @@ function render(){const live=!!trial;
  const gates=actionGates(trial,actor,policy);
  for(const key of ['preregister','report','assess','retry','authorize','close']){
   const lookup={preregister:'register',report:'report',assess:'assess',retry:'retry',authorize:'authorize',close:'close'}[key];
-  $(key).disabled=busy||!address||!actor||!gates[lookup];
+  $(key).disabled=busy||!!pendingTx||!address||!actor||!gates[lookup];
  }
  $('load').disabled=busy||!address;
+ $('resume').disabled=busy||!pendingTx;
+ if(pendingTx)showPending();
  preview();
 }
 async function latest(){address=$('contract').value.trim();if(!addressValid(address))throw Error('Provide your deployed LIFTWATCH contract address.');
@@ -74,16 +93,69 @@ async function latest(){address=$('contract').value.trim();if(!addressValid(addr
 }
 async function guard(fn){if(busy)return;busy=true;render();try{await fn()}catch(e){setMsg('ACTION BLOCKED / '+String(e.message||e))}finally{busy=false;render()}}
 async function sign(method,args){if(!addressValid(address)||!actor)throw Error('Connect wallet and verified contract first.');
- const gates=actionGates(trial,actor),key={preregister:'register',submit_results:'report',assess_trial:'assess',retry_format_review:'retry',authorize_rollout:'authorize',close_trial:'close'}[method];
+ const gates=actionGates(trial,actor,policy),key={preregister:'register',submit_results:'report',assess_trial:'assess',retry_format_review:'retry',authorize_rollout:'authorize',close_trial:'close'}[method];
+ if(pendingTx)throw Error('A previously submitted transaction must be verified before signing again. Use Resume verification; never resubmit blindly.');
  if(method!=='preregister'&&!gates[key])throw Error('Your wallet or current finalized state does not authorize '+method);
  setMsg('Confirm '+method+' in your wallet. A successful GenVM leader return is not proof of validator acceptance.');
  const hash=await write(address,actor,method,args);
- $('txBox').hidden=false;$('txLink').href=explorer(hash);
- setMsg('TX SUBMITTED · NOT YET FINALIZED\n'+hash+'\nCheck validator consensus on Explorer, then select Read LATEST_FINAL. Do not claim ELIGIBLE/AUTHORIZED until committed.');
+ savePending({hash,method,contract:address});showPending();
+ setMsg('TX SUBMITTED · tracking actual GenLayer consensus and finality\\n'+hash+
+   '\\nDo not sign another write while this transaction is unresolved.');
+ await verifyPending();
 }
+/** Never submit again after a timeout: the hash is persisted until independently verified. */
+async function verifyPending(){
+ if(!pendingTx)throw Error('No pending transaction to verify.');
+ const record=pendingTx;
+ showPending();
+ setMsg('VERIFYING FINALITY · '+record.method+'\\n'+record.hash+
+   '\\nWaiting for consensus, execution and the durable final state.');
+ try{
+   let receipt=await waitForFinalized(record.hash);
+   let check=finalReceipt(receipt);
+   if(check.finalized&&!check.success&&check.consensus==='UNKNOWN'){
+     receipt=await getTransactionState(record.hash);
+     check=finalReceipt(receipt);
+   }
+   if(!check.finalized)throw Error('Consensus is not FINALIZED. Check the explorer.');
+   if(!check.success){
+     if(check.execution==='UNKNOWN'||check.consensus==='UNKNOWN')
+       throw Error('Final receipt is incomplete. Check Explorer and resume; do not resubmit.');
+     savePending(null);
+     setMsg('FINALIZED BUT NOT SUCCESSFUL · '+check.execution+' / '+check.consensus+
+       '\\n'+record.hash+'\\nNo success is claimed. Review in Explorer before any new write.');
+     return;
+   }
+   if(record.method==='preregister'){
+     const st=await read(address,'stats');
+     if(Number.isSafeInteger(st.trials)&&st.trials>0)$('trialId').value=String(st.trials);
+   }
+   await latest();
+   const expected={
+     preregister:['REGISTERED','EVIDENCE_LOCKED','REVIEW','HOLD','ELIGIBLE','AUTHORIZED'],
+     submit_results:['EVIDENCE_LOCKED','REVIEW','HOLD','ELIGIBLE','AUTHORIZED'],
+     assess_trial:['REVIEW','HOLD','ELIGIBLE','AUTHORIZED'],
+     retry_format_review:['REVIEW','HOLD','ELIGIBLE','AUTHORIZED'],
+     authorize_rollout:['AUTHORIZED'],
+     close_trial:['CLOSED']
+   };
+   if(!trial||!expected[record.method]?.includes(trial.status))
+     throw Error('Finalized transaction but current trial state is not the expected result. Read the correct trial ID and retry verification.');
+   savePending(null);
+   setMsg('VERIFIED · FINALIZED / FINISHED_WITH_RETURN / '+check.consensus+
+     '\\nTrial #'+trial.id+' · '+trial.status+' (LATEST_FINAL)'+
+     '\\nTransaction '+record.hash+'\\nNo duplicate signature was submitted.');
+ }catch(error){
+   setMsg('TRANSACTION HASH PRESERVED · '+record.hash+
+     '\\nFinality or readback could not be verified yet: '+String(error.message||error)+
+     '\\nUse Resume verification, or inspect Explorer. Do not blindly resubmit.');
+ }
+}
+
 $('connect').addEventListener('click',()=>guard(async()=>{actor=await connectWallet();setMsg('Wallet '+actor+' on Studionet. Verify deployed contract before writing.');}));
-$('contract').addEventListener('change',()=>{address=$('contract').value.trim();if(addressValid(address))localStorage.setItem('liftwatch_contract',address);trial=null;policy=null;render()});
+$('contract').addEventListener('change',()=>{address=$('contract').value.trim();if(addressValid(address))localStorage.setItem('liftwatch_contract',address);trial=null;policy=null;pendingTx=loadPending(address);render()});
 $('load').addEventListener('click',()=>guard(latest));
+$('resume').addEventListener('click',()=>guard(verifyPending));
 $('preregister').addEventListener('click',()=>guard(async()=>{if(!addressValid(address))throw Error('Deploy the contract in Studio first');
  const p=planInputs();if(!addressValid(p.analyst)||p.analyst.toLowerCase()===actor.toLowerCase())throw Error('Assign a different authorized analyst wallet.');
  await sign('preregister',[p.title,p.hypothesis,p.metric_definition,p.population,p.randomization,p.analyst,p.min_arm,p.min_lift_bps,p.max_error_increase_bps]);
@@ -107,4 +179,9 @@ for(const id of ['cUsers','cWins','tUsers','tWins','cErrors','tErrors','minArm',
 $('note').addEventListener('input',()=>updateNoteHash().catch(e=>setMsg(e.message)));
 render();updateNoteHash().catch(e=>setMsg(e.message));
 // Read actual persisted on-chain state on initial load. Never show demo numbers as a live result until verified.
+showPending();
 guard(latest);
+if(window.ethereum?.on){
+ window.ethereum.on('accountsChanged',()=>{actor='';setMsg('Wallet account changed. Reconnect before signing.');render()});
+ window.ethereum.on('chainChanged',()=>{actor='';setMsg('Network changed. Switch to Studionet (61999) and reconnect.');render()});
+}
