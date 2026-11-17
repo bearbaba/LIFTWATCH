@@ -54,7 +54,7 @@ function trackTransaction(phase,{method='',hash='',detail=''}={}){
  $('txTrackerLink').hidden=!hash;if(hash)$('txTrackerLink').href=explorer(hash);
  const status=['txStepSign','txStepSubmit','txStepConsensus','txStepVerify'];
  const active={signing:0,submitted:1,consensus:2,finality:2,readback:3,
-   success:4,failure:hash?3:0,unverified:hash?3:0}[phase]??0;
+   success:4,failure:hash?3:0,unverified:hash?2:0}[phase]??0;
  status.forEach((name,i)=>{
   const el=$(name);
   el.className=(phase==='success'||i<active)?'is-complete':
@@ -65,7 +65,8 @@ function trackTransaction(phase,{method='',hash='',detail=''}={}){
 }
 function followChainStatus(state,record){
  const raw=state?.statusName??state?.status_name??state?.status??'UNKNOWN';
- const status=raw===7?'FINALIZED':String(raw).toUpperCase();
+ const status=raw===7||String(raw)==='7'?'FINALIZED':
+   raw===8||String(raw)==='8'?'CANCELED':String(raw).toUpperCase();
  const hash=record.hash,method=record.method;
  if(status==='FINALIZED'){
   trackTransaction('readback',{hash,method,detail:'FINALIZED reported. Checking execution result and latest-final contract state.'});

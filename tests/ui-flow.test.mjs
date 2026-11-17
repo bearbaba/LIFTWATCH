@@ -26,7 +26,7 @@ function element(){
  };
 }
 function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=false,connectError=null,
- execution='FINISHED_WITH_RETURN',consensus='MAJORITY_AGREE',finalStatus='FINALIZED'}={}){
+ execution='FINISHED_WITH_RETURN',consensus='MAJORITY_AGREE',finalStatus='FINALIZED',writeError=null}={}){
  const nodes=new Map(),events={},storage=new Map(),writes=[];
  const initial={title:'Checkout A/B protection',hypothesis:'A'.repeat(50),metricDef:'A'.repeat(50),
   population:'New and returning users in one period.',randomization:'Stable user ID 50/50 split.',
@@ -45,7 +45,7 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
     events.accountsChanged=onAccountsChanged;events.chainChanged=onChainChanged;return ()=>{};
   },
   read:async(_address,method)=>method==='stats'?policy:structuredClone(trial),
-  write:async(_address,_actor,method,args)=>{writes.push({method,args});
+  write:async(_address,_actor,method,args)=>{if(writeError)throw writeError;writes.push({method,args});
    const newStatus={
     retry_format_review:'ELIGIBLE',authorize_rollout:'AUTHORIZED',
     submit_results:'EVIDENCE_LOCKED',assess_trial:'ELIGIBLE',preregister:'REGISTERED'
@@ -238,13 +238,20 @@ test('timeout shows UNVERIFIED and keeps hash for safe Resume verification',asyn
  assert.equal(h.writes.length,1);
 });
 test('wallet rejection before hash shows FAILED and no submitted claim',async()=>{
- const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER});
- await flush();await h.click('connect');
- // Run an unauthorized write path; it must never appear as a finalized transaction.
- h.$('analyst').value=OWNER;
- await h.click('preregister');
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER,
+   writeError:new Error('User rejected the wallet signature')});
+ await flush();await h.click('connect');await h.click('authorize');
  assert.equal(h.$('txTrackerLabel').textContent,'FAILED');
- assert.match(h.$('txTrackerDetail').textContent,/NOT SUBMITTED/);
+ assert.match(h.$('txTrackerDetail').textContent,/NOT SUBMITTED.*rejected/);
  assert.equal(h.$('txTrackerHash').hidden,true);
  assert.equal(h.writes.length,0);
+});
+test('numeric GenLayer CANCELED status displays failure, not an RPC timeout',async()=>{
+ assert.equal(finalReceipt({status:8}).status,'CANCELED');
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER,finalStatus:8});
+ await flush();await h.click('connect');await h.click('authorize');
+ assert.equal(h.$('txTrackerLabel').textContent,'FAILED');
+ assert.equal(h.$('txTrackerSpinner').hidden,true);
+ assert.match(h.$('log').textContent,/CANCELED/);
+ assert.equal(h.$('txBox').hidden,true);
 });
