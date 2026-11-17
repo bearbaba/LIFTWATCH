@@ -268,3 +268,14 @@ test('preregister new trial succeeds even when previous trial is already AUTHORI
  assert.equal(h.storage.size,0,'new trial must not retain a false stale trial ID');
  assert.equal(h.writes.filter(x=>x.method==='preregister').length,1);
 });
+
+test('submission error with no returned hash is UNVERIFIED rather than falsely NOT SUBMITTED',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER,
+   writeError:new Error('RPC response lost before transaction hash was returned')});
+ await flush();await h.click('connect');await h.click('authorize');
+ assert.equal(h.$('txTrackerLabel').textContent,'UNVERIFIED');
+ assert.match(h.$('txTrackerDetail').textContent,/NO TRANSACTION HASH RETURNED/);
+ assert.equal(h.$('txTrackerHash').hidden,true);
+ assert.equal(h.$('txTrackerResume').hidden,true);
+ assert.equal(h.writes.length,0);
+});

@@ -3,7 +3,7 @@ import {finalReceipt,normalizePendingTx} from './tx-status.js';
 import {addressValid,actionGates,metrics} from './safety.js';
 const $=id=>document.getElementById(id);
 const previewPlan={min_arm:500,min_lift_bps:150,max_error_increase_bps:100};
-let actor='',address=localStorage.getItem('liftwatch_contract')||'0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106',trial=null,policy=null,busy=false;
+let actor='',address=localStorage.getItem('liftwatch_contract')||'0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106',trial=null,policy=null,busy=false,txWriteAttempted=false;
 const pendingKey=addr=>'liftwatch_pending_'+addr.toLowerCase();
 function loadPending(addr){
   try{return normalizePendingTx(JSON.parse(localStorage.getItem(pendingKey(addr))),addr)}
@@ -176,12 +176,20 @@ async function latest(){address=$('contract').value.trim();if(!addressValid(addr
 }
 async function guard(fn,{wallet=false,transaction=false}={}){
  if(busy){if(wallet)walletFeedback('The app is loading on-chain data. Try Connect wallet again after the current read finishes.','warning');return;}
+ if(transaction)txWriteAttempted=false;
  busy=true;render();
  try{await fn()}catch(e){
   const message=String(e.message||e);
   setMsg('ACTION BLOCKED / '+message);
   if(wallet)walletFeedback(message+'\nIf you use a wallet inside GenLayer Studio, connect the same address through a browser extension on this website.','error');
-  if(transaction&&!pendingTx)trackTransaction('failure',{detail:'NOT SUBMITTED. '+message});
+  if(transaction&&!pendingTx){
+   const rejected=e?.code===4001||/rejected|denied by user|user denied/i.test(message);
+   if(txWriteAttempted&&!rejected)trackTransaction('unverified',{
+    detail:'NO TRANSACTION HASH RETURNED. Submission is uncertain: '+message+'. Check wallet activity before attempting another write.'});
+   else trackTransaction('failure',{detail:rejected?
+    'WALLET REJECTED · NOT SUBMITTED. '+message:
+    'ACTION BLOCKED BEFORE SUBMISSION. '+message});
+  }
  }finally{busy=false;render()}
 }
 async function sign(method,args){if(!addressValid(address)||!actor)throw Error('Connect wallet and verified contract first.');
@@ -190,7 +198,9 @@ async function sign(method,args){if(!addressValid(address)||!actor)throw Error('
  if(method!=='preregister'&&!gates[key])throw Error('Your wallet or current finalized state does not authorize '+method);
  trackTransaction('signing',{method,detail:'Preparing the transaction. Review and approve it in the browser wallet; no success is claimed yet.'});
  setMsg('Confirm '+method+' in your wallet. A successful GenVM leader return is not proof of validator acceptance.');
+ txWriteAttempted=true;
  const hash=await write(address,actor,method,args);
+ txWriteAttempted=false;
  savePending({hash,method,contract:address,signer:actor,trialId:method==='preregister'?null:trial?.id??null});showPending();
  trackTransaction('submitted',{method,hash,detail:'Signed transaction hash saved locally. Waiting for GenLayer execution and consensus.'});
  setMsg('TX SUBMITTED · tracking actual GenLayer consensus and finality\n'+hash+
