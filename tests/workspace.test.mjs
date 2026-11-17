@@ -55,13 +55,14 @@ test('default overview shows only its own sections and keeps input nodes mounted
 });
 test('link hash switches to exactly one visible screen without re-rendering forms',()=>{
  const app=setup();const api=app.run();
- app.panels[2].value='Unsaved signed draft text';
+ const activePanel=app.panels.find(panel=>panel.dataset.workspaceScreen===screens[2]);
+ activePanel.value='Unsaved signed draft text';
  app.win.location.hash='#'+screens[2];
  app.events.hashchange();
  assert.equal(api.active,screens[2]);
  assert.equal(app.panels.filter(x=>!x.hidden).length,1);
- assert.equal(app.panels[2].value,'Unsaved signed draft text');
- assert.equal(app.panels[2].hidden,false);
+ assert.equal(activePanel.value,'Unsaved signed draft text');
+ assert.equal(activePanel.hidden,false);
  assert.equal(app.links[2].getAttribute('aria-current'),'page');
  assert.equal(app.links[0].getAttribute('aria-current'),null);
  assert.equal(app.moves.length,1);
