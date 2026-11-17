@@ -97,6 +97,8 @@ function render(){const live=!!trial;
   $(key).disabled=busy||!!pendingTx||!address||!actor||!gates[lookup];
  }
  $('load').disabled=busy||!address;
+ $('contract').disabled=busy||!!pendingTx;
+ $('trialId').disabled=busy||!!pendingTx;
  $('resume').disabled=busy||!pendingTx;
  if(pendingTx)showPending();
  preview();
@@ -125,7 +127,7 @@ async function sign(method,args){if(!addressValid(address)||!actor)throw Error('
  if(method!=='preregister'&&!gates[key])throw Error('Your wallet or current finalized state does not authorize '+method);
  setMsg('Confirm '+method+' in your wallet. A successful GenVM leader return is not proof of validator acceptance.');
  const hash=await write(address,actor,method,args);
- savePending({hash,method,contract:address});showPending();
+ savePending({hash,method,contract:address,signer:actor,trialId:trial?.id??null});showPending();
  setMsg('TX SUBMITTED · tracking actual GenLayer consensus and finality\n'+hash+
    '\nDo not sign another write while this transaction is unresolved.');
  await verifyPending();
@@ -158,6 +160,10 @@ async function verifyPending(){
      if(Number.isSafeInteger(st.trials)&&st.trials>0)$('trialId').value=String(st.trials);
    }
    await latest();
+   if(record.trialId!=null&&trial.id!==record.trialId)
+     throw Error('Loaded trial ID does not match the submitted transaction. No success claimed.');
+   if(record.method==='preregister'&&trial.plan?.owner?.toLowerCase()!==record.signer)
+     throw Error('The new trial was not owned by the wallet that submitted preregistration.');
    const expected={
      preregister:['REGISTERED','EVIDENCE_LOCKED','REVIEW','HOLD','ELIGIBLE','AUTHORIZED'],
      submit_results:['EVIDENCE_LOCKED','REVIEW','HOLD','ELIGIBLE','AUTHORIZED'],
