@@ -1,6 +1,8 @@
 import {readFileSync} from 'node:fs';
 import {createClient} from 'genlayer-stable';
 import {studionet} from 'genlayer-stable/chains';
+import {TransactionStatus} from 'genlayer-stable/types';
+
 const isCanon=JSON.parse(readFileSync('package.json','utf8')).name==='canonatlas';
 const path=isCanon?'contracts/canon_atlas.py':'contracts/liftwatch.py';
 const expected=isCanon?['create_world','propose_entry','assess_entry','ratify_entry','decline_entry','get_world','get_entry','get_reference_bank','stats']:
@@ -21,3 +23,14 @@ for(const name of ['preregister','submit_results','assess_trial','retry_format_r
 }
 console.log(JSON.stringify({ok:true,path:candidate,version:'1.1.0',
   methods:Object.keys(schemaV11.methods||{}),constructor:schemaV11.ctor},null,2));
+
+// The pinned SDK (genlayer-js 1.1.8) must actually implement the finality API
+// used by the browser. Newer SDK docs use waitForFinalization, but v1.1.8
+// exposes waitForTransactionReceipt({hash,status: FINALIZED}) instead.
+const readClient=createClient({chain:studionet});
+if(typeof readClient.waitForTransactionReceipt!=='function'||
+   typeof readClient.getTransaction!=='function'||
+   TransactionStatus.FINALIZED!=='FINALIZED'){
+  throw Error('Pinned GenLayerJS 1.1.8 cannot verify FINALIZED execution receipts');
+}
+console.log('SDK wallet lifecycle API: waitForTransactionReceipt / FINALIZED / getTransaction VERIFIED');
