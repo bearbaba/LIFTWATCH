@@ -6,7 +6,9 @@ export function finalReceipt(receipt){
   if(!receipt||typeof receipt!=='object')
     return {finalized:false,success:false,status:'UNKNOWN',execution:'UNKNOWN',consensus:'UNKNOWN'};
   const rawStatus=receipt.statusName??receipt.status_name??receipt.status;
-  const status=rawStatus===7||String(rawStatus)==='7'?'FINALIZED':String(rawStatus||'UNKNOWN').toUpperCase();
+  const status=rawStatus===7||String(rawStatus)==='7'?'FINALIZED':
+    rawStatus===8||String(rawStatus)==='8'?'CANCELED':
+    String(rawStatus||'UNKNOWN').toUpperCase();
   const rawExec=receipt.txExecutionResultName??receipt.tx_execution_result_name??
     receipt.executionResultName??receipt.txExecutionResult;
   const execution=rawExec===1||String(rawExec)==='1'?'FINISHED_WITH_RETURN':

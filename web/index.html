@@ -2,6 +2,23 @@
 <div class="dashboard"><aside class="side"><a class="logo" href="#top"><span class="logomark">L<span>↗</span></span><span>LIFT<span class="neon">WATCH</span><small>EXPERIMENT DECISION NETWORK</small></span></a><div class="nav-label">WORKSPACE</div><a class="nav active" href="#overview">◉ <span>Overview</span></a><a class="nav" href="#register">⌗ <span>Preregister</span></a><a class="nav" href="#results">▥ <span>Evidence ledger</span></a><a class="nav" href="#review">✧ <span>Report & AI review</span></a><a class="nav" href="#console">⤳ <span>On-chain console</span></a><div class="sidebar-card"><span class="small-label">THE PRINCIPLE</span><strong>AI interprets.<br/>Math enforces.</strong><p>A model cannot override a failed significance test or a safety guardrail.</p><div class="spectrum"><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="side-foot">Studionet · chain 61999<br/><small>Scientific caution by design</small></div></aside>
 <main id="top" class="content"><header class="top"><div class="crumb">WORKSPACE <span>/</span> EXPERIMENTS <span>/</span> DECISION DESK</div><div class="tools"><span id="mode" class="mode">EXAMPLE DATA · NO CHAIN PROOF</span><button id="connect" class="button secondary">Connect wallet ↗</button></div></header>
 <div id="walletAlert" class="wallet-alert" role="status" aria-live="polite" hidden></div>
+<section id="txTracker" class="tx-tracker" role="status" aria-live="polite" hidden>
+ <div class="tx-tracker-head">
+  <span id="txTrackerSpinner" class="tx-spinner" aria-hidden="true" hidden></span>
+  <div class="tx-tracker-copy"><strong id="txTrackerTitle">Transaction status</strong><p id="txTrackerDetail"></p></div>
+  <span id="txTrackerLabel" class="tx-tracker-label">UNVERIFIED</span>
+ </div>
+ <div class="tx-tracker-steps" aria-label="Transaction lifecycle">
+  <span id="txStepSign">1 · Wallet signature</span>
+  <span id="txStepSubmit">2 · Submitted</span>
+  <span id="txStepConsensus">3 · GenLayer consensus</span>
+  <span id="txStepVerify">4 · Finality & readback</span>
+ </div>
+ <div class="tx-tracker-foot"><code id="txTrackerHash" hidden></code>
+  <a id="txTrackerLink" target="_blank" rel="noopener noreferrer" hidden>View in Explorer ↗</a>
+  <button id="txTrackerResume" type="button" hidden>Resume verification ↻</button>
+ </div>
+</section>
 <nav class="workspace-tabs" aria-label="Workspace sections"><a class="workspace-tab" href="#overview">Overview</a><a class="workspace-tab" href="#register">Preregister</a><a class="workspace-tab" href="#results">Results</a><a class="workspace-tab" href="#review">Report & AI</a><a class="workspace-tab" href="#console">On-chain</a></nav>
 <section id="overview" class="hero" data-workspace-screen="overview"><div class="hero-text"><span class="eyebrow"><span class="live-dot"></span> THE TRUST LAYER FOR PRODUCT DECISIONS</span><h1>Ship evidence.<br/><em>Not hope.</em></h1><p>Preregister the decision. Lock the experiment. Let deterministic statistics and independent AI methodology review agree before authorizing any rollout.</p><div class="hero-buttons"><a class="button primary" href="#register">Create a trial <span>↗</span></a><a class="button outline" href="#console">Inspect contract</a></div><div class="caption"><span>◆</span> An authorization record is not an automated deploy or proof of causality.</div></div><div class="hero-art" aria-hidden="true"><div class="art-grid"></div><div class="art-card"><div class="art-label">EVIDENCE SIGNAL</div><div class="wave"><span style="height:30%"></span><span style="height:52%"></span><span style="height:44%"></span><span style="height:62%"></span><span style="height:55%"></span><span style="height:79%"></span><span style="height:66%"></span><span style="height:88%"></span><span style="height:71%"></span><span style="height:97%"></span></div><div class="art-bottom"><span>NOISE</span><b>→</b><span class="neon">SIGNAL</span></div></div></div></section>
 <section class="overview-kpis" data-workspace-screen="overview"><div class="kpi"><span>TRIAL STATE</span><strong id="trialStatus">PREVIEW</strong><small>One preregistered report</small></div><div class="kpi"><span>CONVERSION LIFT</span><strong id="liftKpi">+4.00 <small>pp</small></strong><small>Absolute percentage-point difference</small></div><div class="kpi"><span>DETERMINISTIC GATES</span><strong id="gateKpi">4 / 4</strong><small>Approximate 95% z-test</small></div><div class="kpi"><span>AI METHODOLOGY</span><strong id="aiKpi">—</strong><small>No fabricated PASS in preview</small></div></section>

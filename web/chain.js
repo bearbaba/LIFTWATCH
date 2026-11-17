@@ -62,12 +62,32 @@ export async function write(address,actor,method,args=[]){
 /** SDK v1.1.8 API: FINALIZED is more conservative than ACCEPTED.
  * A timeout does NOT mean the write was rejected: the returned hash is durable.
  */
-export async function waitForFinalized(hash){
+export async function waitForFinalized(hash,onProgress){
   if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Invalid GenLayer transaction hash');
   const {createClient,studionet,TransactionStatus}=await sdk();
-  return createClient({chain:studionet}).waitForTransactionReceipt({
+  const client=createClient({chain:studionet});
+  const finality=client.waitForTransactionReceipt({
     hash,status:TransactionStatus.FINALIZED,interval:3500,retries:125,fullTransaction:false
   });
+  if(typeof onProgress!=='function')return finality;
+  let monitoring=true,canceledResolve;
+  const canceled=new Promise(resolve=>{canceledResolve=resolve});
+  const monitor=(async()=>{
+    while(monitoring){
+      try{
+        const tx=await client.getTransaction({hash});
+        if(!monitoring)break;
+        onProgress(tx);
+        const raw=tx?.statusName??tx?.status_name??tx?.status;
+        if(raw===8||String(raw).toUpperCase()==='CANCELED'){canceledResolve(tx);break}
+      }catch{
+        if(monitoring)onProgress({statusName:'RPC_RETRYING'});
+      }
+      if(monitoring)await new Promise(resolve=>setTimeout(resolve,5500));
+    }
+  })();
+  try{return await Promise.race([finality,canceled])}
+  finally{monitoring=false;void monitor}
 }
 export async function getTransactionState(hash){
   if(!/^0x[a-fA-F0-9]{64}$/.test(hash||''))throw Error('Invalid GenLayer transaction hash');
