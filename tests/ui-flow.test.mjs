@@ -25,7 +25,8 @@ function element(){
   append(...nodes){this.children.push(...nodes)},
  };
 }
-function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=false,connectError=null}={}){
+function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=false,connectError=null,
+ execution='FINISHED_WITH_RETURN',consensus='MAJORITY_AGREE',finalStatus='FINALIZED'}={}){
  const nodes=new Map(),events={},storage=new Map(),writes=[];
  const initial={title:'Checkout A/B protection',hypothesis:'A'.repeat(50),metricDef:'A'.repeat(50),
   population:'New and returning users in one period.',randomization:'Stable user ID 50/50 split.',
@@ -51,8 +52,13 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
    }[method];if(newStatus)trial={...trial,status:newStatus,
     assessment:newStatus==='ELIGIBLE'?{verdict:'PASS',format_fallback:false,checks:[{}]}:trial.assessment};
    return HASH},
-  waitForFinalized:async()=>{if(shouldTimeout)throw Error('temporary RPC timeout');
-   return {statusName:'FINALIZED',resultName:'MAJORITY_AGREE',txExecutionResultName:'FINISHED_WITH_RETURN'}},
+  waitForFinalized:async(_hash,onProgress)=>{
+   onProgress?.({statusName:'PROPOSING'});
+   onProgress?.({statusName:'ACCEPTED'});
+   if(shouldTimeout)throw Error('temporary RPC timeout');
+   onProgress?.({statusName:finalStatus});
+   return {statusName:finalStatus,resultName:consensus,txExecutionResultName:execution};
+  },
   getTransactionState:async()=>({statusName:'FINALIZED',resultName:'MAJORITY_AGREE',
    txExecutionResultName:'FINISHED_WITH_RETURN'}),
   explorer:hash=>'https://explorer-studio.genlayer.com/tx/'+hash
@@ -189,4 +195,56 @@ test('switching the connected wallet locks signing and shows a visible warning',
  assert.equal(h.$('authorize').disabled,true);
  assert.equal(h.$('walletAlert').className,'wallet-alert is-warning');
  assert.match(h.$('walletAlert').textContent,/Reconnect/);
+});
+
+test('live tracker follows real transaction stages and only succeeds after final readback',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER});
+ await flush();await h.click('connect');await h.click('authorize');
+ assert.equal(h.$('txTracker').hidden,false);
+ assert.equal(h.$('txTrackerLabel').textContent,'SUCCESS');
+ assert.equal(h.$('txTrackerSpinner').hidden,true);
+ assert.match(h.$('txTrackerDetail').textContent,/LATEST_FINAL/);
+ assert.equal(h.$('txTrackerHash').textContent,HASH);
+ assert.equal(h.$('txTrackerLink').href,'https://explorer-studio.genlayer.com/tx/'+HASH);
+ assert.equal(h.$('txBox').hidden,true);
+ assert.equal(h.$('txStepVerify').className,'is-complete');
+});
+test('finalized execution error shows FAILED, not success',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER,execution:'FINISHED_WITH_ERROR'});
+ await flush();await h.click('connect');await h.click('authorize');
+ assert.equal(h.$('txTrackerLabel').textContent,'FAILED');
+ assert.match(h.$('txTrackerDetail').textContent,/FINISHED_WITH_ERROR/);
+ assert.equal(h.$('txTrackerSpinner').hidden,true);
+ assert.equal(h.$('txBox').hidden,true);
+ assert.equal(h.writes.length,1);
+});
+test('canceled transaction shows terminal failure without success claim',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER,finalStatus:'CANCELED'});
+ await flush();await h.click('connect');await h.click('authorize');
+ assert.equal(h.$('txTrackerLabel').textContent,'FAILED');
+ assert.match(h.$('log').textContent,/CANCELED/);
+ assert.equal(h.$('txBox').hidden,true);
+});
+test('timeout shows UNVERIFIED and keeps hash for safe Resume verification',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER,timeout:true});
+ await flush();await h.click('connect');await h.click('authorize');
+ assert.equal(h.$('txTrackerLabel').textContent,'UNVERIFIED');
+ assert.equal(h.$('txTrackerResume').hidden,false);
+ assert.equal(h.$('txBox').hidden,false);
+ assert.equal(h.storage.size,1);
+ h.timeout=false;await h.click('txTrackerResume');
+ assert.equal(h.$('txTrackerLabel').textContent,'SUCCESS');
+ assert.equal(h.$('txTrackerResume').hidden,true);
+ assert.equal(h.writes.length,1);
+});
+test('wallet rejection before hash shows FAILED and no submitted claim',async()=>{
+ const h=harness({status:'ELIGIBLE',formatFallback:false,actor:OWNER});
+ await flush();await h.click('connect');
+ // Run an unauthorized write path; it must never appear as a finalized transaction.
+ h.$('analyst').value=OWNER;
+ await h.click('preregister');
+ assert.equal(h.$('txTrackerLabel').textContent,'FAILED');
+ assert.match(h.$('txTrackerDetail').textContent,/NOT SUBMITTED/);
+ assert.equal(h.$('txTrackerHash').hidden,true);
+ assert.equal(h.writes.length,0);
 });

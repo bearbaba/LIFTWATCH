@@ -45,3 +45,35 @@
 .wallet-alert.is-error{border-color:#b26855;background:#2c1b19;color:#ffe2d8}
 .wallet-alert.is-success{border-color:#729d63;background:#163223;color:#d7ffbd}
 #connect:disabled{cursor:wait;opacity:.76}
+
+/* Transaction lifecycle: visible across all workspace tabs, grounded in real transaction hashes. */
+.tx-tracker{position:sticky;top:8px;z-index:24;margin:12px 0 6px;padding:14px 16px;
+ border:1px solid #3e7259;border-radius:12px;background:#10261dcf;backdrop-filter:blur(14px);
+ box-shadow:0 14px 32px #0008;color:#e9f9eb}
+.tx-tracker[hidden],.tx-tracker [hidden]{display:none!important}
+.tx-tracker-head{display:flex;align-items:center;gap:13px;min-height:28px}
+.tx-tracker-copy{min-width:0;flex:1}
+.tx-tracker-copy strong{display:block;font-size:13px;letter-spacing:.01em}
+.tx-tracker-copy p{margin:4px 0 0;font-size:11px;line-height:1.45;color:#adccb7;overflow-wrap:anywhere}
+.tx-tracker-label{flex:none;font:800 9px/1.4 ui-monospace,monospace;letter-spacing:.08em;
+ border:1px solid #5e8d66;border-radius:25px;padding:6px 9px;color:#b8ee90}
+.tx-spinner{flex:none;width:23px;height:23px;border:3px solid #40604f;
+ border-top-color:#c4f86c;border-radius:50%;animation:tx-spin .9s linear infinite}
+@keyframes tx-spin{to{transform:rotate(360deg)}}
+.tx-tracker-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:12px 0 0}
+.tx-tracker-steps span{padding:7px 9px;border-radius:7px;background:#0b1a13;color:#708f7d;
+ border:1px solid #28483a;font:700 10px/1.4 ui-monospace,monospace}
+.tx-tracker-steps span.is-complete{color:#baf38b;border-color:#4d8757;background:#163222}
+.tx-tracker-steps span.is-active{color:#f1ffc9;border-color:#acd863;background:#2b4826}
+.tx-tracker-steps span.is-failed{color:#ffe5dc;border-color:#bc7366;background:#3a2522}
+.tx-tracker-foot{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:10px}
+.tx-tracker-foot code{font:10px/1.4 ui-monospace,monospace;color:#a5c6b3;overflow-wrap:anywhere}
+.tx-tracker-foot a,.tx-tracker-foot button{color:#c3f577;font-size:11px;font-weight:700}
+.tx-tracker-foot button{border:1px solid #60834e;border-radius:7px;padding:6px 9px;background:#193024}
+.tx-tracker.is-failure{border-color:#bd7465;background:#321e1bcf}
+.tx-tracker.is-failure .tx-tracker-label{color:#ffe3dc;border-color:#bd7465}
+.tx-tracker.is-unverified{border-color:#b49b62;background:#302819d9}
+.tx-tracker.is-unverified .tx-tracker-label{color:#ffe7b7;border-color:#ad955a}
+.tx-tracker.is-success{border-color:#8ac778;background:#153420ea}
+@media(max-width:760px){.tx-tracker{top:4px;padding:12px 11px}.tx-tracker-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.tx-tracker-label{font-size:8px}.tx-tracker-copy strong{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.tx-spinner{animation:none;border-top-color:#e1faab}}
