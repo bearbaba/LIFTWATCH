@@ -320,3 +320,30 @@ test('Missing consensus in both receipts stays UNVERIFIED and preserves original
  assert.equal(h.storage.size,1);
  assert.equal(h.writes.length,1);
 });
+
+test('blank community draft fields cannot submit a registration or report',async()=>{
+ const owner=harness({actor:OWNER,status:'AUTHORIZED'});
+ await flush();await owner.click('connect');
+ for(const id of ['title','hypothesis','metricDef','population','randomization','analyst','minArm','minLift','maxErr'])
+  owner.$(id).value='';
+ await owner.click('preregister');
+ assert.equal(owner.writes.length,0);
+ assert.match(owner.$('log').textContent,/Enter your own experiment name/);
+ const analyst=harness({actor:ANALYST,status:'REGISTERED'});
+ await flush();await analyst.click('connect');
+ for(const id of ['cUsers','cWins','tUsers','tWins','cErrors','tErrors','note'])
+  analyst.$(id).value='';
+ await analyst.click('report');
+ assert.equal(analyst.writes.length,0);
+ assert.match(analyst.$('log').textContent,/Fill in all six experiment counts/);
+});
+test('unsigned empty draft data does not fabricate conversion or statistical gate outcomes',async()=>{
+ const h=harness({status:'REGISTERED',actor:ANALYST});
+ await flush();
+ h.trial.report={};
+ for(const id of ['cUsers','cWins','tUsers','tWins','cErrors','tErrors'])h.$(id).value='';
+ await h.click('load');
+ assert.equal(h.$('controlPct').textContent,'—');
+ assert.equal(h.$('gateKpi').textContent,'—');
+ assert.match(h.$('metricSource').textContent,/NO SIGNED REPORT/);
+});

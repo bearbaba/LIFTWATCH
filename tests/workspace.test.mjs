@@ -81,3 +81,19 @@ test('without JavaScript, no section is pre-hidden in HTML',()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  assert.ok(!/<section[^>]*data-workspace-screen[^>]*\shidden(?:\s|>)/.test(html));
 });
+
+test('community write forms begin empty while read-only Trial #2 evidence remains selected',()=>{
+ const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
+ for(const id of ['title','analyst','minArm','minLift','maxErr','cUsers','cWins','tUsers','tWins','cErrors','tErrors']){
+  const input=html.match(new RegExp('<input[^>]*id="'+id+'"[^>]*>'));
+  assert.ok(input,'missing community field '+id);
+  assert.ok(!/\\bvalue=/.test(input[0]),'pre-filled community input '+id);
+ }
+ for(const id of ['hypothesis','metricDef','population','randomization','note']){
+  assert.match(html,new RegExp('<textarea[^>]*id="'+id+'"[^>]*><\\/textarea>'),'expected empty draft field '+id);
+ }
+ assert.match(html,/<input id="trialId"[^>]*value="2"/);
+ assert.match(html,/Watch real-wallet demo/);
+ assert.match(html,/VERIFICATION/i);
+ assert.ok(!html.includes('value="2500"'),'sample figures should not prefill write forms');
+});

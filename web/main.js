@@ -90,9 +90,24 @@ function condition(name,pass,foot){const row=document.createElement('div');row.c
  const title=document.createElement('span'),status=document.createElement('strong');
  title.textContent=name;status.textContent=pass?'PASS':'BLOCK';status.className=pass?'':'fail';
  if(foot)title.title=foot;row.append(title,status);$('gates').append(row);}
-function preview(){let m;try{m=metrics(trial?.plan||previewPlan,trial?.report?.control_users?trial.report:localReport())}
- catch(e){$('gateKpi').textContent='INVALID';setMsg('Local counts invalid: '+e.message);return}
- const report=trial?.report?.control_users?trial.report:localReport();
+const reportIds=['cUsers','cWins','tUsers','tWins','cErrors','tErrors'];
+function resetPreview(source='NO SIGNED REPORT LOADED'){
+ $('metricSource').textContent=source;
+ for(const id of ['controlPct','treatmentPct','controlCount','treatmentCount','absoluteLift','liftKpi','errorRates','gateKpi'])
+  $(id).textContent='—';
+ $('controlBar').style.width='0%';$('treatmentBar').style.width='0%';
+ $('gates').replaceChildren();
+}
+function preview(){
+ const fromChain=Number.isSafeInteger(trial?.report?.control_users)&&trial.report.control_users>0;
+ const complete=reportIds.every(id=>String($(id).value).trim()!=='');
+ // Do not manufacture a zero-count result from empty community input fields.
+ if(!fromChain&&!complete){resetPreview();return;}
+ const report=fromChain?trial.report:localReport();
+ let m;
+ try{m=metrics(fromChain?trial.plan:(trial?.plan||previewPlan),report);}
+ catch{resetPreview('INCOMPLETE OR INVALID DRAFT · NO CHAIN PROOF');return;}
+ $('metricSource').textContent=fromChain?'SIGNED REPORT · LATEST_FINAL':'LOCAL DRAFT ONLY · NO CHAIN PROOF';
  $('controlPct').textContent=(m.control_bps/100).toFixed(2)+'%';$('treatmentPct').textContent=(m.treatment_bps/100).toFixed(2)+'%';
  $('controlBar').style.width=Math.min(100,m.control_bps/25)+'%';
  $('treatmentBar').style.width=Math.min(100,m.treatment_bps/25)+'%';
@@ -304,12 +319,31 @@ $('contract').addEventListener('change',()=>{address=$('contract').value.trim();
 $('load').addEventListener('click',()=>guard(latest));
 $('resume').addEventListener('click',()=>guard(verifyPending));
 $('txTrackerResume').addEventListener('click',()=>guard(verifyPending));
-$('preregister').addEventListener('click',()=>guard(async()=>{if(!addressValid(address))throw Error('Deploy the contract in Studio first');
- const p=planInputs();if(!addressValid(p.analyst)||p.analyst.toLowerCase()===actor.toLowerCase())throw Error('Assign a different authorized analyst wallet.');
+$('preregister').addEventListener('click',()=>guard(async()=>{
+ if(!addressValid(address))throw Error('A verified GenLayer contract address is required.');
+ const p=planInputs();
+ for(const [id,min,max,label] of [
+   ['title',6,80,'experiment name'],['hypothesis',35,380,'hypothesis'],
+   ['metricDef',35,360,'primary metric'],['population',25,300,'population'],
+   ['randomization',40,420,'randomization plan']
+ ]){const value=$(id).value.trim();if(value.length<min||value.length>max)
+    throw Error('Enter your own '+label+' ('+min+'–'+max+' characters) before signing.');}
+ for(const [id,min,max,label] of [
+   ['minArm',100,1000000,'minimum per arm'],['minLift',1,5000,'minimum lift (bps)'],
+   ['maxErr',0,1000,'maximum error increase (bps)']
+ ]){if(String($(id).value).trim()===''||!Number.isSafeInteger(Number($(id).value))||
+   Number($(id).value)<min||Number($(id).value)>max)
+    throw Error('Enter a valid '+label+' ('+min+'–'+max+') before signing.');}
+ if(!addressValid(p.analyst)||p.analyst.toLowerCase()===actor.toLowerCase())
+  throw Error('Assign a different authorized analyst wallet.');
  await sign('preregister',[p.title,p.hypothesis,p.metric_definition,p.population,p.randomization,p.analyst,p.min_arm,p.min_lift_bps,p.max_error_increase_bps]);
 },{transaction:true}));
-$('report').addEventListener('click',()=>guard(async()=>{if(!trial)throw Error('Read the preregistered trial first');
- const r=localReport(),note=$('note').value;
+$('report').addEventListener('click',()=>guard(async()=>{
+ if(!trial)throw Error('Read your own preregistered trial first.');
+ if(!reportIds.every(id=>String($(id).value).trim()!==''&&Number.isSafeInteger(Number($(id).value))))
+  throw Error('Fill in all six experiment counts with whole numbers before signing.');
+ const r=localReport();try{metrics(trial.plan,r);}catch(e){throw Error('Invalid experiment counts: '+String(e.message||e));}
+ const note=$('note').value.trim();
  if(note.length<80||note.length>900)throw Error('Methods note requires 80–900 characters');
  const digest=await sha256(note);
  await sign('submit_results',[trial.id,r.control_users,r.control_success,r.treatment_users,r.treatment_success,r.control_errors,r.treatment_errors,note,digest]);
@@ -321,7 +355,9 @@ $('close').addEventListener('click',()=>guard(async()=>{const reason=window.prom
  if(reason===null)return;if(reason.length<12||reason.length>300)throw Error('Explanation must be 12–300 characters');
  await sign('close_trial',[trial.id,reason]);
 },{transaction:true}));
-async function updateNoteHash(){const text=$('note').value;$('noteHash').textContent=await sha256(text)}
+async function updateNoteHash(){const text=$('note').value.trim();
+ $('noteHash').textContent=text?await sha256(text):'Enter your methods note';
+}
 for(const id of ['cUsers','cWins','tUsers','tWins','cErrors','tErrors','minArm','minLift','maxErr'])
  $(id).addEventListener('input',()=>preview());
 $('note').addEventListener('input',()=>updateNoteHash().catch(e=>setMsg(e.message)));

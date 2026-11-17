@@ -77,3 +77,8 @@
 .tx-tracker.is-success{border-color:#8ac778;background:#153420ea}
 @media(max-width:760px){.tx-tracker{top:4px;padding:12px 11px}.tx-tracker-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.tx-tracker-label{font-size:8px}.tx-tracker-copy strong{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.tx-spinner{animation:none;border-top-color:#e1faab}}
+
+/* Community-owned drafts: visually distinguish blank inputs from public read-only proof. */
+.form-guidance{margin:0 0 18px;padding:11px 14px;border-left:3px solid #a7e469;
+ background:#173327;color:#cce3ce;font-size:12px;line-height:1.6;border-radius:4px}
+.console-helper a,.caption a{color:#baff80;text-decoration:underline;text-underline-offset:3px}
