@@ -53,11 +53,38 @@ function preview(){let m;try{m=metrics(trial?.plan||previewPlan,trial?.report?.c
  $('gates').replaceChildren();for(const [key,pass] of results)condition(key,pass);
  $('gateKpi').textContent=results.filter(x=>x[1]).length+' / 4';
 }
+function renderEvidence(){
+ const root=$('evidenceInspector');root.replaceChildren();
+ const checks=trial?.assessment?.checks;
+ if(!Array.isArray(checks)||checks.length===0){
+  const empty=document.createElement('p');
+  empty.textContent=trial?.status==='REVIEW'?
+    'No usable AI citations are attached to this REVIEW. Rollout remains blocked.':
+    'Three methodology assessments and their frozen references appear after an accepted GenLayer consensus.';
+  root.append(empty);return;
+ }
+ for(const check of checks){
+  const block=document.createElement('article');block.className='citation-block';
+  const heading=document.createElement('strong');
+  heading.textContent=String(check.criterion||'unknown').replaceAll('_',' ')+' · '+String(check.result||'UNASSESSED');
+  const reason=document.createElement('p');reason.textContent=String(check.reason||'No explanation provided.');
+  block.append(heading,reason);
+  for(const ref of Array.isArray(check.references)?check.references:[]){
+    const citation=document.createElement('div');citation.className='literal-citation';
+    const name=document.createElement('span');name.textContent=String(ref.ref_id||'unknown')+' / '+String(ref.field||'');
+    const quote=document.createElement('p');quote.textContent=String(ref.quote||'');
+    citation.append(name,quote);block.append(citation);
+  }
+  root.append(block);
+ }
+}
+
 function render(){const live=!!trial;
  $('mode').textContent=live?'LATEST_FINAL · LIVE':'EXAMPLE DATA · NO CHAIN PROOF';
  $('trialStatus').textContent=live?trial.status:'PREVIEW';
  $('aiKpi').textContent=live?trial.assessment?.verdict||'—':'—';
  $('aiDecision').textContent=live?trial.status:'NOT ASSESSED';
+ renderEvidence();
  $('aiExplanation').textContent=live&&trial.assessment?.checks?.length?
   trial.assessment.checks.map(c=>c.criterion+':'+c.result).join(' | '):
   (live&&trial.assessment?.format_fallback===true?
