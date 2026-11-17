@@ -7,6 +7,16 @@
 > **Verified on GenLayer Studionet — 16 Nov 2026:** [LIFTWATCH V1.1 `0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106`](https://studio.genlayer.com/?import-contract=0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106) completed a signed, validator-accepted **REGISTERED → EVIDENCE_LOCKED → ELIGIBLE (3/3 AI methodology PASS) → AUTHORIZED** workflow. [Read-only GitHub Actions verification](https://github.com/bearbaba/LIFTWATCH/actions/runs/43865060771) independently confirms LATEST_FINAL authorization, deterministic quantitative gates, evidence citations and matching frozen plan/report hashes. All cohort data is **synthetic**; authorization is **non-executing**, not a real product release or independent analytics-provider audit.
 
 
+## Live website demo — Trial #2 (17 Nov 2026)
+
+[![Watch the end-to-end LIFTWATCH demo on YouTube](https://img.youtube.com/vi/BTvwC1kBBiI/hqdefault.jpg)](https://youtu.be/BTvwC1kBBiI)
+
+**[▶ Watch the LIFTWATCH real-wallet demo (YouTube)](https://youtu.be/BTvwC1kBBiI)** · [Open the live app](https://liftwatch-ten.vercel.app)
+
+The recorded browser walkthrough shows real MetaMask wallet interactions on GenLayer Studionet (chain 61999), the Owner and Analyst roles, and Trial #2 progressing through **REGISTERED → EVIDENCE_LOCKED → ELIGIBLE → AUTHORIZED**. It includes an AI methodology review (pre-registration, randomization and measurement all PASS) and on-screen finality/LATEST_FINAL readback. The [Trial #2 registration transaction](https://explorer-studio.genlayer.com/tx/0x0f1aa27fe5864184f888d8e819c4ca726c3f0e6be069937742a82f672146cefc) was reported as FINALIZED with accepted consensus, execution SUCCESS and return value `2`.
+
+**Evidence boundary:** The video records test-network wallet interactions and synthetic cohort data. On-chain authorization is `NON_EXECUTING_RELEASE_DECISION`: it does not execute a production rollout or independently attest to analytics-provider data. The YouTube video is a demonstrative artifact; individual claims should be corroborated with GenLayer Explorer and `LATEST_FINAL` state.
+
 ## Signed on-chain acceptance — V1.1
 
 **Contract:** [`0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106`](https://studio.genlayer.com/?import-contract=0x57B02e2a91863fAD0B7f5fdf50D4f25a46cE5106) · GenLayer Studionet, chain 61999 · [Deployed source](contracts/liftwatch_v11.py) checked against actual RPC code at `LATEST_FINAL`.
@@ -79,7 +89,7 @@ The browser dashboard has a real **Studionet (61999) wallet connector and signed
 
 For new trials, independent Owner and Analyst accounts submit through wallet confirmation. The frontend now keeps the transaction hash across refreshes, waits for SDK `FINALIZED` and `FINISHED_WITH_RETURN`, confirms accepted consensus, and **re-reads the authoritative trial state** before displaying success. Network timeouts leave a resumable pending hash and block repeat writes; `Resume pending transaction verification` checks the *same* hash without signing. A wallet or chain change invalidates previous frontend signing authorization. The V1.1 format-only retry control is signer- and policy-gated.
 
-**Proof boundary:** Original four signed transactions were initiated from GenLayer Studio, and are independently verifiable on chain. Automated browser interaction tests use a simulated wallet/provider; they do **not** constitute a genuine user-wallet signature from the production website. The final real-wallet website walkthrough/video must be recorded by the account owner, with transaction hashes independently checked after the fact.
+**Proof boundary:** The original Trial #1 signed transactions were initiated from GenLayer Studio. Trial #2 has a [recorded browser-wallet walkthrough](https://youtu.be/BTvwC1kBBiI) showing Owner/Analyst signatures and the on-screen readback flow on the deployed website. Automated browser interaction tests still use simulated wallet/provider fixtures; those tests alone do **not** prove genuine user-wallet signatures. Check individual hashes and `LATEST_FINAL` state independently for transaction-level verification.
 
 ## Quick start
 
