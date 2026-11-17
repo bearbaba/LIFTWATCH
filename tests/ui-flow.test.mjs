@@ -85,10 +85,13 @@ test('FINALIZED and executed with accepted consensus is an actual success',()=>{
  assert.equal(finalReceipt({statusName:'FINALIZED',txExecutionResultName:'FINISHED_WITH_RETURN'}).success,false);
 });
 test('pending transactions must bind to the correct contract, method, and valid hash',()=>{
- assert.equal(normalizePendingTx({hash:HASH,method:'assess_trial',contract:CONTRACT},CONTRACT)?.hash,HASH);
- assert.equal(normalizePendingTx({hash:HASH,method:'assess_trial',contract:OWNER},CONTRACT),null);
- assert.equal(normalizePendingTx({hash:HASH,method:'fake_method',contract:CONTRACT},CONTRACT),null);
- assert.equal(normalizePendingTx({hash:'abc',method:'assess_trial',contract:CONTRACT},CONTRACT),null);
+ const row={hash:HASH,method:'assess_trial',contract:CONTRACT,trialId:1,signer:ANALYST};
+ assert.equal(normalizePendingTx(row,CONTRACT)?.hash,HASH);
+ assert.equal(normalizePendingTx({...row,contract:OWNER},CONTRACT),null);
+ assert.equal(normalizePendingTx({...row,method:'fake_method'},CONTRACT),null);
+ assert.equal(normalizePendingTx({...row,hash:'abc'},CONTRACT),null);
+ assert.equal(normalizePendingTx({...row,trialId:0},CONTRACT),null);
+ assert.equal(normalizePendingTx({...row,signer:null},CONTRACT),null);
 });
 test('real retry control calls V1.1 method with Analyst and confirms finalized readback',async()=>{
  const h=harness();
