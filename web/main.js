@@ -127,7 +127,7 @@ async function latest(){address=$('contract').value.trim();if(!addressValid(addr
  trial=value;
  setMsg('LATEST_FINAL VERIFIED\nTrial #'+id+' · '+trial.status+'\nPreregistration commitment: '+trial.plan_sha256+'\nReport commitment: '+(trial.report_sha256||'NOT YET SUBMITTED')+'\nAssessment: '+(trial.assessment?.verdict||'NOT ASSESSED')+'\nOnly accepted consensus and persisted state count.');
 }
-async function guard(fn,{wallet=false}={}){if(busy)return;busy=true;render();try{await fn()}catch(e){
+async function guard(fn,{wallet=false}={}){if(busy){if(wallet)walletFeedback('The app is loading on-chain data. Try Connect wallet again after the current read finishes.','warning');return;}busy=true;render();try{await fn()}catch(e){
   const message=String(e.message||e);
   setMsg('ACTION BLOCKED / '+message);
   if(wallet)walletFeedback(message+'\nIf you use a wallet inside GenLayer Studio, connect the same address through a browser extension on this website.','error');
@@ -203,7 +203,7 @@ $('connect').addEventListener('click',()=>guard(async()=>{
   onAccountsChanged:()=>{
     actor='';
     walletFeedback('Wallet account changed. Reconnect before signing.','warning');
-    setMsg('Wallet changed; signing is locked until reconnection.');render();
+    setMsg('Wallet account changed; signing is locked until reconnection.');render();
   },
   onChainChanged:()=>{
     actor='';
