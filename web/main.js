@@ -99,8 +99,8 @@ async function sign(method,args){if(!addressValid(address)||!actor)throw Error('
  setMsg('Confirm '+method+' in your wallet. A successful GenVM leader return is not proof of validator acceptance.');
  const hash=await write(address,actor,method,args);
  savePending({hash,method,contract:address});showPending();
- setMsg('TX SUBMITTED · tracking actual GenLayer consensus and finality\\n'+hash+
-   '\\nDo not sign another write while this transaction is unresolved.');
+ setMsg('TX SUBMITTED · tracking actual GenLayer consensus and finality\n'+hash+
+   '\nDo not sign another write while this transaction is unresolved.');
  await verifyPending();
 }
 /** Never submit again after a timeout: the hash is persisted until independently verified. */
@@ -108,8 +108,8 @@ async function verifyPending(){
  if(!pendingTx)throw Error('No pending transaction to verify.');
  const record=pendingTx;
  showPending();
- setMsg('VERIFYING FINALITY · '+record.method+'\\n'+record.hash+
-   '\\nWaiting for consensus, execution and the durable final state.');
+ setMsg('VERIFYING FINALITY · '+record.method+'\n'+record.hash+
+   '\nWaiting for consensus, execution and the durable final state.');
  try{
    let receipt=await waitForFinalized(record.hash);
    let check=finalReceipt(receipt);
@@ -123,7 +123,7 @@ async function verifyPending(){
        throw Error('Final receipt is incomplete. Check Explorer and resume; do not resubmit.');
      savePending(null);
      setMsg('FINALIZED BUT NOT SUCCESSFUL · '+check.execution+' / '+check.consensus+
-       '\\n'+record.hash+'\\nNo success is claimed. Review in Explorer before any new write.');
+       '\n'+record.hash+'\nNo success is claimed. Review in Explorer before any new write.');
      return;
    }
    if(record.method==='preregister'){
@@ -143,12 +143,12 @@ async function verifyPending(){
      throw Error('Finalized transaction but current trial state is not the expected result. Read the correct trial ID and retry verification.');
    savePending(null);
    setMsg('VERIFIED · FINALIZED / FINISHED_WITH_RETURN / '+check.consensus+
-     '\\nTrial #'+trial.id+' · '+trial.status+' (LATEST_FINAL)'+
-     '\\nTransaction '+record.hash+'\\nNo duplicate signature was submitted.');
+     '\nTrial #'+trial.id+' · '+trial.status+' (LATEST_FINAL)'+
+     '\nTransaction '+record.hash+'\nNo duplicate signature was submitted.');
  }catch(error){
    setMsg('TRANSACTION HASH PRESERVED · '+record.hash+
-     '\\nFinality or readback could not be verified yet: '+String(error.message||error)+
-     '\\nUse Resume verification, or inspect Explorer. Do not blindly resubmit.');
+     '\nFinality or readback could not be verified yet: '+String(error.message||error)+
+     '\nUse Resume verification, or inspect Explorer. Do not blindly resubmit.');
  }
 }
 
