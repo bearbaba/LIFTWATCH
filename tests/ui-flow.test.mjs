@@ -38,18 +38,19 @@ function harness({actor=ANALYST,status='REVIEW',formatFallback=true,timeout=fals
   verdict:status==='ELIGIBLE'?'PASS':'REVIEW',format_fallback:formatFallback,
   checks:formatFallback?[]:[{criterion:'measurement',result:'REVIEW'}]
  },metrics:{deterministic_gate:true},assessment_runs:1};
- let shouldTimeout=timeout;
+ let shouldTimeout=timeout,trialsCount=1;
  const deps={
   connectWallet:async()=>{if(connectError)throw connectError;return actor},
   subscribeWalletChanges:({onAccountsChanged,onChainChanged})=>{
     events.accountsChanged=onAccountsChanged;events.chainChanged=onChainChanged;return ()=>{};
   },
-  read:async(_address,method)=>method==='stats'?policy:structuredClone(trial),
+  read:async(_address,method)=>method==='stats'?{...policy,trials:trialsCount}:structuredClone(trial),
   write:async(_address,_actor,method,args)=>{if(writeError)throw writeError;writes.push({method,args});
    const newStatus={
     retry_format_review:'ELIGIBLE',authorize_rollout:'AUTHORIZED',
     submit_results:'EVIDENCE_LOCKED',assess_trial:'ELIGIBLE',preregister:'REGISTERED'
    }[method];if(newStatus)trial={...trial,status:newStatus,
+    id:method==='preregister'?++trialsCount:trial.id,
     assessment:newStatus==='ELIGIBLE'?{verdict:'PASS',format_fallback:false,checks:[{}]}:trial.assessment};
    return HASH},
   waitForFinalized:async(_hash,onProgress)=>{
@@ -254,4 +255,16 @@ test('numeric GenLayer CANCELED status displays failure, not an RPC timeout',asy
  assert.equal(h.$('txTrackerSpinner').hidden,true);
  assert.match(h.$('log').textContent,/CANCELED/);
  assert.equal(h.$('txBox').hidden,true);
+});
+
+test('preregister new trial succeeds even when previous trial is already AUTHORIZED',async()=>{
+ const h=harness({status:'AUTHORIZED',actor:OWNER,formatFallback:false});
+ await flush();await h.click('connect');
+ assert.equal(h.$('preregister').disabled,false);
+ await h.click('preregister');
+ assert.equal(h.$('txTrackerLabel').textContent,'SUCCESS');
+ assert.equal(h.trial.id,2);
+ assert.equal(h.$('trialId').value,'2');
+ assert.equal(h.storage.size,0,'new trial must not retain a false stale trial ID');
+ assert.equal(h.writes.filter(x=>x.method==='preregister').length,1);
 });

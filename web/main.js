@@ -191,7 +191,7 @@ async function sign(method,args){if(!addressValid(address)||!actor)throw Error('
  trackTransaction('signing',{method,detail:'Preparing the transaction. Review and approve it in the browser wallet; no success is claimed yet.'});
  setMsg('Confirm '+method+' in your wallet. A successful GenVM leader return is not proof of validator acceptance.');
  const hash=await write(address,actor,method,args);
- savePending({hash,method,contract:address,signer:actor,trialId:trial?.id??null});showPending();
+ savePending({hash,method,contract:address,signer:actor,trialId:method==='preregister'?null:trial?.id??null});showPending();
  trackTransaction('submitted',{method,hash,detail:'Signed transaction hash saved locally. Waiting for GenLayer execution and consensus.'});
  setMsg('TX SUBMITTED · tracking actual GenLayer consensus and finality\n'+hash+
    '\nDo not sign another write while this transaction is unresolved.');
